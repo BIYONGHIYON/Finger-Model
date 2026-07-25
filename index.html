@@ -1,7 +1,24 @@
 <!--
 =========================================================
-문구수정 : 하단 653줄
-결과화면 없애기 : 672줄 | true : 결과화면 없음 | false : 결과화면 있음
+1. 문구 수정
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 670)
+
+2. 결과 화면 켜기/끄기
+    - 스크립트 영역의 endlessMode (line 689)
+    - true  : 결과화면 없음
+    - false : 결과화면 있음 (5개 단어 선택 시 결과 화면으로 넘어감)
+
+3. 폰트 수정
+    - 코드에서 Ctrl+F 키를 눌러 'font-family'를 검색
+    - 일반 텍스트 폰트 : 상단 스타일 영역의 body { font-family: ... } 부분 수정
+    - 영어/강조 폰트 (단어 칩, 선택된 단어 등) : .selected-word, .word-chip 영역의 font-family 수정
+
+4. 메인 컬러(테마 색상) 수정
+    - 상단 스타일 영역 맨 위쪽(line 41)의 :root { ... } 블록
+    - --pink, --purple, --cyan 뒤에 있는 색상 코드(예: #ff5f9e)를 변경
+
+5. 웹사이트에 반영
+    - 수정 후 저장, github에 commit & push하면 약 2분내로 반영됨
 =========================================================
 -->
 <!DOCTYPE html>
@@ -18,7 +35,7 @@
     name="apple-mobile-web-app-status-bar-style"
     content="black-translucent"
   />
-  <title>i love hoonkyu so much</title>
+  <title>i love hooonkyu so much</title>
 
   <style>
     :root {
