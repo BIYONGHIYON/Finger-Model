@@ -1,0 +1,1865 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <meta
+    name="viewport"
+    content="width=device-width, initial-scale=1, viewport-fit=cover, user-scalable=no"
+  />
+  <meta name="theme-color" content="#07070c" />
+  <meta name="apple-mobile-web-app-capable" content="yes" />
+  <meta
+    name="apple-mobile-web-app-status-bar-style"
+    content="black-translucent"
+  />
+  <title>i love hoonkyu so much</title>
+
+  <style>
+    :root {
+      --bg: #07070c;
+      --fg: #fffaf6;
+      --muted: rgba(255, 255, 255, 0.62);
+      --glass: rgba(12, 12, 20, 0.38);
+      --glass-strong: rgba(12, 12, 20, 0.68);
+      --glass-border: rgba(255, 255, 255, 0.16);
+      --pink: #ff5f9e;
+      --purple: #9879ff;
+      --cyan: #65e9ff;
+      --green: #8df58b;
+      --red: #ff4e67;
+      --safe-top: max(18px, env(safe-area-inset-top));
+      --safe-bottom: max(18px, env(safe-area-inset-bottom));
+    }
+
+    * {
+      box-sizing: border-box;
+      -webkit-tap-highlight-color: transparent;
+    }
+
+    html,
+    body {
+      width: 100%;
+      height: 100%;
+      margin: 0;
+      overflow: hidden;
+      background: #020204;
+      color: var(--fg);
+      font-family:
+        -apple-system, BlinkMacSystemFont, "SF Pro Display", "Pretendard",
+        "Noto Sans KR", sans-serif;
+    }
+
+    button {
+      color: inherit;
+      font: inherit;
+    }
+
+    .app {
+      position: relative;
+      width: 100%;
+      height: 100%;
+      min-height: 100svh;
+      overflow: hidden;
+      isolation: isolate;
+      background:
+        radial-gradient(circle at 18% 12%, rgba(255, 95, 158, 0.18), transparent 30%),
+        radial-gradient(circle at 86% 82%, rgba(101, 233, 255, 0.14), transparent 28%),
+        linear-gradient(145deg, #08080d, #10101b 55%, #08080d);
+    }
+
+    .camera-layer,
+    #camera,
+    #overlay {
+      position: absolute;
+      inset: 0;
+      width: 100%;
+      height: 100%;
+    }
+
+    .camera-layer {
+      z-index: 0;
+      opacity: 0;
+      background: #050508;
+      transition: opacity 600ms ease;
+    }
+
+    .camera-layer.active {
+      opacity: 1;
+    }
+
+    #camera {
+      object-fit: cover;
+      transform: scaleX(-1);
+      filter: brightness(0.88) contrast(1.04) saturate(0.96);
+    }
+
+    #overlay {
+      z-index: 2;
+      pointer-events: none;
+    }
+
+    .shade {
+      position: absolute;
+      inset: 0;
+      z-index: 3;
+      pointer-events: none;
+      background:
+        linear-gradient(
+          to bottom,
+          rgba(2, 2, 6, 0.65) 0%,
+          rgba(2, 2, 6, 0.08) 25%,
+          rgba(2, 2, 6, 0.02) 55%,
+          rgba(2, 2, 6, 0.68) 100%
+        ),
+        radial-gradient(circle at center, transparent 28%, rgba(0, 0, 0, 0.17));
+    }
+
+    .noise {
+      position: absolute;
+      inset: -50%;
+      z-index: 4;
+      pointer-events: none;
+      opacity: 0.042;
+      background-image:
+        url("data:image/svg+xml,%3Csvg viewBox='0 0 180 180' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='.92' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)' opacity='.9'/%3E%3C/svg%3E");
+      animation: noiseMove 260ms steps(2) infinite;
+    }
+
+    @keyframes noiseMove {
+      0% { transform: translate3d(0, 0, 0); }
+      25% { transform: translate3d(2%, -2%, 0); }
+      50% { transform: translate3d(-2%, 1%, 0); }
+      75% { transform: translate3d(1%, 2%, 0); }
+      100% { transform: translate3d(0, 0, 0); }
+    }
+
+    .orb {
+      position: absolute;
+      z-index: 4;
+      width: 48vw;
+      height: 48vw;
+      min-width: 220px;
+      min-height: 220px;
+      border-radius: 50%;
+      filter: blur(68px);
+      opacity: 0.2;
+      mix-blend-mode: screen;
+      pointer-events: none;
+    }
+
+    .orb.one {
+      top: -16%;
+      left: -20%;
+      background: var(--pink);
+      animation: driftOne 8s ease-in-out infinite alternate;
+    }
+
+    .orb.two {
+      right: -22%;
+      bottom: 5%;
+      background: var(--cyan);
+      animation: driftTwo 9s ease-in-out infinite alternate;
+    }
+
+    @keyframes driftOne {
+      to { transform: translate(17vw, 15vh) scale(1.2); }
+    }
+
+    @keyframes driftTwo {
+      to { transform: translate(-15vw, -9vh) scale(0.86); }
+    }
+
+    .topbar {
+      position: absolute;
+      top: 0;
+      left: 0;
+      right: 0;
+      z-index: 20;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      padding: calc(var(--safe-top) + 3px) 18px 12px;
+    }
+
+    .brand {
+      display: flex;
+      align-items: center;
+      gap: 9px;
+      font-size: 11px;
+      font-weight: 750;
+      letter-spacing: 0.17em;
+      text-transform: uppercase;
+      text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45);
+    }
+
+    .brand-dot {
+      width: 9px;
+      height: 9px;
+      border-radius: 50%;
+      background: linear-gradient(135deg, var(--pink), var(--cyan));
+      box-shadow:
+        0 0 0 5px rgba(255, 255, 255, 0.06),
+        0 0 22px rgba(255, 95, 158, 0.72);
+    }
+
+    .reset-button {
+      min-width: 66px;
+      height: 38px;
+      padding: 0 13px;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      background: rgba(6, 6, 10, 0.34);
+      font-size: 12px;
+      font-weight: 680;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      cursor: pointer;
+    }
+
+    .reset-button:active {
+      transform: scale(0.95);
+    }
+
+    .reset-button[hidden] {
+      display: none;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      z-index: 10;
+      display: flex;
+      flex-direction: column;
+      transition:
+        opacity 500ms ease,
+        visibility 500ms,
+        transform 500ms cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .screen.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: scale(1.025);
+    }
+
+    .intro {
+      justify-content: flex-end;
+      padding:
+        calc(var(--safe-top) + 70px)
+        22px
+        calc(var(--safe-bottom) + 25px);
+    }
+
+    .intro-decoration {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
+    }
+
+    .floating-word {
+      position: absolute;
+      color: rgba(255, 255, 255, 0.09);
+      font-family: Georgia, "Times New Roman", serif;
+      font-style: italic;
+      user-select: none;
+    }
+
+    .floating-word:nth-child(1) {
+      top: 17%;
+      left: -4%;
+      font-size: clamp(78px, 29vw, 150px);
+      transform: rotate(-12deg);
+    }
+
+    .floating-word:nth-child(2) {
+      top: 34%;
+      right: -8%;
+      font-size: clamp(70px, 25vw, 130px);
+      transform: rotate(10deg);
+    }
+
+    .floating-word:nth-child(3) {
+      bottom: 22%;
+      left: 17%;
+      font-size: clamp(60px, 20vw, 110px);
+      transform: rotate(-5deg);
+    }
+
+    .eyebrow {
+      margin-bottom: 13px;
+      color: rgba(255, 255, 255, 0.58);
+      font-size: 11px;
+      font-weight: 720;
+      letter-spacing: 0.22em;
+      text-transform: uppercase;
+    }
+
+    .intro h1 {
+      max-width: 520px;
+      margin: 0;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(55px, 16vw, 92px);
+      font-weight: 400;
+      line-height: 0.83;
+      letter-spacing: -0.065em;
+    }
+
+    .intro h1 em {
+      display: block;
+      margin-left: 0.53em;
+      color: transparent;
+      font-style: italic;
+      -webkit-text-stroke: 1px rgba(255, 255, 255, 0.84);
+      text-shadow: 0 0 38px rgba(255, 95, 158, 0.18);
+    }
+
+    .intro-copy {
+      max-width: 450px;
+      margin: 21px 0 25px;
+      color: var(--muted);
+      font-size: 14px;
+      line-height: 1.65;
+      word-break: keep-all;
+    }
+
+    .primary-button {
+      position: relative;
+      width: 100%;
+      min-height: 58px;
+      overflow: hidden;
+      border: 1px solid rgba(255, 255, 255, 0.28);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.95);
+      color: #0a0910;
+      font-size: 15px;
+      font-weight: 780;
+      cursor: pointer;
+      box-shadow:
+        0 14px 38px rgba(0, 0, 0, 0.28),
+        inset 0 1px 0 rgba(255, 255, 255, 0.8);
+      transition: transform 150ms ease, opacity 200ms ease;
+    }
+
+    .primary-button::before {
+      content: "";
+      position: absolute;
+      inset: -80% -20%;
+      background: linear-gradient(
+        115deg,
+        transparent 34%,
+        rgba(255, 95, 158, 0.28) 45%,
+        rgba(101, 233, 255, 0.32) 54%,
+        transparent 66%
+      );
+      transform: translateX(-72%);
+      animation: buttonShine 3.2s ease-in-out infinite;
+    }
+
+    .primary-button span {
+      position: relative;
+      z-index: 1;
+    }
+
+    .primary-button:active {
+      transform: scale(0.98);
+    }
+
+    .primary-button:disabled {
+      opacity: 0.62;
+      cursor: wait;
+    }
+
+    @keyframes buttonShine {
+      0%, 25% { transform: translateX(-72%); }
+      65%, 100% { transform: translateX(72%); }
+    }
+
+    .experience {
+      justify-content: space-between;
+      align-items: center;
+      padding:
+        calc(var(--safe-top) + 65px)
+        17px
+        calc(var(--safe-bottom) + 15px);
+    }
+
+    .status-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      min-height: 38px;
+      max-width: calc(100vw - 34px);
+      padding: 8px 14px;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      background: rgba(6, 6, 11, 0.34);
+      color: rgba(255, 255, 255, 0.82);
+      font-size: 12px;
+      font-weight: 650;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .status-dot {
+      width: 7px;
+      height: 7px;
+      flex: 0 0 auto;
+      border-radius: 50%;
+      background: #ffd76e;
+      box-shadow: 0 0 13px currentColor;
+    }
+
+    .status-pill.ready .status-dot {
+      background: #78ffba;
+    }
+
+    .status-pill.error .status-dot {
+      background: #ff617b;
+    }
+
+    .center-stage {
+      position: relative;
+      display: grid;
+      place-items: center;
+      width: min(82vw, 420px);
+      aspect-ratio: 1;
+      pointer-events: none;
+    }
+
+    .guide-ring {
+      position: absolute;
+      width: 78%;
+      aspect-ratio: 1;
+      border: 1px solid rgba(255, 255, 255, 0.18);
+      border-radius: 50%;
+      box-shadow:
+        inset 0 0 55px rgba(255, 255, 255, 0.025),
+        0 0 70px rgba(152, 121, 255, 0.07);
+      opacity: 0.58;
+    }
+
+    .guide-ring::before,
+    .guide-ring::after {
+      content: "";
+      position: absolute;
+      inset: -8px;
+      border: 1px solid transparent;
+      border-top-color: rgba(101, 233, 255, 0.55);
+      border-right-color: rgba(255, 95, 158, 0.45);
+      border-radius: 50%;
+      animation: spin 5.2s linear infinite;
+    }
+
+    .guide-ring::after {
+      inset: 15px;
+      border-top-color: rgba(255, 255, 255, 0.27);
+      border-right-color: transparent;
+      animation-duration: 7.5s;
+      animation-direction: reverse;
+    }
+
+    @keyframes spin {
+      to { transform: rotate(360deg); }
+    }
+
+    .selected-word {
+      position: relative;
+      z-index: 2;
+      min-height: 1.05em;
+      max-width: 94vw;
+      padding: 0 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(61px, 19vw, 112px);
+      font-style: italic;
+      font-weight: 400;
+      line-height: 0.92;
+      letter-spacing: -0.065em;
+      text-align: center;
+      text-shadow:
+        0 3px 30px rgba(0, 0, 0, 0.36),
+        0 0 38px rgba(255, 255, 255, 0.08);
+      opacity: 0;
+      transform: scale(0.72);
+    }
+
+    .selected-word.show {
+      animation: wordPop 900ms cubic-bezier(.16, .82, .22, 1) both;
+    }
+
+    @keyframes wordPop {
+      0% {
+        opacity: 0;
+        transform: scale(0.52) rotate(-8deg);
+        filter: blur(12px);
+      }
+      42% {
+        opacity: 1;
+        transform: scale(1.09) rotate(1deg);
+        filter: blur(0);
+      }
+      76% {
+        opacity: 1;
+        transform: scale(1) rotate(0);
+      }
+      100% {
+        opacity: 0;
+        transform: scale(0.96);
+      }
+    }
+
+    .bottom-panel {
+      width: 100%;
+      max-width: 540px;
+      padding: 13px 14px 12px;
+      border: 1px solid var(--glass-border);
+      border-radius: 24px;
+      background: rgba(6, 6, 11, 0.3);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .word-list {
+      display: grid;
+      grid-template-columns: repeat(5, 1fr);
+      gap: 7px;
+      margin-bottom: 11px;
+    }
+
+    .word-chip {
+      min-width: 0;
+      padding: 9px 3px;
+      border: 1px solid rgba(255, 255, 255, 0.11);
+      border-radius: 14px;
+      background: rgba(255, 255, 255, 0.055);
+      color: rgba(255, 255, 255, 0.37);
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(10px, 3vw, 13px);
+      font-style: italic;
+      text-align: center;
+      transition: 300ms ease;
+    }
+
+    .word-chip.active {
+      color: #fff;
+      border-color: rgba(255, 255, 255, 0.38);
+      background:
+        linear-gradient(
+          135deg,
+          rgba(255, 95, 158, 0.23),
+          rgba(101, 233, 255, 0.12)
+        ),
+        rgba(255, 255, 255, 0.07);
+      transform: translateY(-2px);
+    }
+
+    .instruction {
+      min-height: 38px;
+      margin: 0;
+      color: rgba(255, 255, 255, 0.66);
+      font-size: 12px;
+      line-height: 1.55;
+      text-align: center;
+      word-break: keep-all;
+    }
+
+    .progress {
+      height: 3px;
+      margin-top: 10px;
+      overflow: hidden;
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.1);
+    }
+
+    .progress-fill {
+      width: 0%;
+      height: 100%;
+      border-radius: inherit;
+      background: linear-gradient(90deg, var(--pink), var(--purple), var(--cyan));
+      box-shadow: 0 0 14px rgba(101, 233, 255, 0.52);
+      transition: width 350ms ease;
+    }
+
+    .complete {
+      align-items: center;
+      justify-content: flex-end;
+      padding:
+        calc(var(--safe-top) + 80px)
+        22px
+        calc(var(--safe-bottom) + 24px);
+      text-align: center;
+      background:
+        radial-gradient(circle at 50% 39%, rgba(255, 95, 158, 0.14), transparent 31%),
+        linear-gradient(to bottom, rgba(7, 7, 12, 0.05), rgba(7, 7, 12, 0.84));
+    }
+
+    .complete-copy {
+      width: 100%;
+      max-width: 520px;
+    }
+
+    .complete h2 {
+      margin: 0 0 18px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(49px, 14vw, 82px);
+      font-weight: 400;
+      font-style: italic;
+      line-height: 0.9;
+      letter-spacing: -0.06em;
+      text-shadow: 0 3px 34px rgba(0, 0, 0, 0.3);
+    }
+
+    .complete p {
+      margin: 0 0 24px;
+      color: rgba(255, 255, 255, 0.65);
+      font-size: 14px;
+      line-height: 1.65;
+    }
+
+    .flash {
+      position: fixed;
+      inset: 0;
+      z-index: 35;
+      pointer-events: none;
+      opacity: 0;
+      background: radial-gradient(circle at center, rgba(255, 255, 255, 0.82), transparent 66%);
+    }
+
+    .flash.play {
+      animation: flash 520ms ease-out;
+    }
+
+    @keyframes flash {
+      0% { opacity: 0; }
+      18% { opacity: 0.52; }
+      100% { opacity: 0; }
+    }
+
+    .particle {
+      position: fixed;
+      z-index: 42;
+      width: 7px;
+      height: 12px;
+      border-radius: 999px;
+      pointer-events: none;
+      animation: particleFly var(--duration, 900ms) cubic-bezier(.12, .75, .22, 1) forwards;
+    }
+
+    @keyframes particleFly {
+      0% {
+        opacity: 0;
+        transform: translate3d(var(--x0), var(--y0), 0) scale(0.2) rotate(0);
+      }
+      12% { opacity: 1; }
+      100% {
+        opacity: 0;
+        transform:
+          translate3d(var(--x1), var(--y1), 0)
+          scale(1.1)
+          rotate(var(--rot));
+      }
+    }
+
+    .toast {
+      position: fixed;
+      left: 50%;
+      bottom: calc(var(--safe-bottom) + 18px);
+      z-index: 50;
+      width: max-content;
+      max-width: calc(100vw - 36px);
+      padding: 11px 15px;
+      border: 1px solid var(--glass-border);
+      border-radius: 999px;
+      background: rgba(5, 5, 9, 0.82);
+      color: rgba(255, 255, 255, 0.88);
+      font-size: 12px;
+      text-align: center;
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+      opacity: 0;
+      transform: translate(-50%, 12px);
+      transition: 250ms ease;
+      pointer-events: none;
+    }
+
+    .toast.show {
+      opacity: 1;
+      transform: translate(-50%, 0);
+    }
+
+    @media (min-width: 700px) {
+      .app {
+        width: min(100%, 540px);
+        margin: auto;
+        box-shadow: 0 0 80px rgba(0, 0, 0, 0.52);
+      }
+    }
+
+    @media (prefers-reduced-motion: reduce) {
+      *,
+      *::before,
+      *::after {
+        animation-duration: 1ms !important;
+        animation-iteration-count: 1 !important;
+      }
+    }
+  </style>
+</head>
+
+<body>
+  <main class="app">
+    <div class="camera-layer" id="cameraLayer">
+      <video id="camera" autoplay muted playsinline></video>
+      <canvas id="overlay"></canvas>
+    </div>
+
+    <div class="shade"></div>
+    <div class="noise"></div>
+    <div class="orb one"></div>
+    <div class="orb two"></div>
+
+    <header class="topbar">
+      <div class="brand">
+        <span class="brand-dot"></span>
+        <span>MENT 1</span>
+      </div>
+
+      <button class="reset-button" id="resetButton" hidden>
+        초기화
+      </button>
+    </header>
+
+    <section class="screen intro" id="introScreen">
+      <div class="intro-decoration" aria-hidden="true">
+        <span class="floating-word">love</span>
+        <span class="floating-word">so</span>
+        <span class="floating-word">much</span>
+      </div>
+
+      <div class="eyebrow">MENT 2 · INTERACTIVE MESSAGE</div>
+
+      <h1>
+        Touch your
+        <em>feeling.</em>
+      </h1>
+
+      <p class="intro-copy">
+        멘트 3. 양손을 펼치면 손가락 끝에 단어가 나타납니다.
+        엄지와 원하는 손가락 끝을 맞대어 메시지를 선택해 주세요.
+      </p>
+
+      <button class="primary-button" id="startButton">
+        <span>카메라 시작하기</span>
+      </button>
+    </section>
+
+    <section class="screen experience hidden" id="experienceScreen">
+      <div class="status-pill" id="statusPill">
+        <span class="status-dot"></span>
+        <span id="statusText">준비 중...</span>
+      </div>
+
+      <div class="center-stage">
+        <div class="guide-ring"></div>
+        <strong class="selected-word" id="selectedWord"></strong>
+      </div>
+
+      <div class="bottom-panel">
+        <div class="word-list">
+          <div class="word-chip" data-word="i">i</div>
+          <div class="word-chip" data-word="love">love</div>
+          <div class="word-chip" data-word="hoonkyu">hoonkyu</div>
+          <div class="word-chip" data-word="so">so</div>
+          <div class="word-chip" data-word="much">much</div>
+        </div>
+
+        <p class="instruction" id="instruction">
+          양손을 화면 안에 펼쳐 주세요.
+        </p>
+
+        <div class="progress">
+          <div class="progress-fill" id="progressFill"></div>
+        </div>
+      </div>
+    </section>
+
+    <section class="screen complete hidden" id="completeScreen">
+      <div class="complete-copy">
+        <div class="eyebrow">MENT 4</div>
+
+        <h2>
+          i love<br />
+          hoonkyu<br />
+          so much
+        </h2>
+
+        <p>
+          멘트 5. 다섯 개의 손짓으로 완성된 마지막 메시지가 들어가는 영역입니다.
+        </p>
+
+        <button class="primary-button" id="restartButton">
+          <span>다시 시작하기</span>
+        </button>
+      </div>
+    </section>
+
+    <canvas id="inferenceCanvas" hidden></canvas>
+    <div class="flash" id="flash"></div>
+    <div class="toast" id="toast"></div>
+  </main>
+
+  <script type="module">
+    import {
+      FilesetResolver,
+      HandLandmarker
+    } from "https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.35/+esm";
+
+    "use strict";
+
+    /*
+      ================================================================
+      문구 ↔ 손가락 매핑
+      ================================================================
+
+      전면 카메라 영상을 모델 입력 단계에서도 거울처럼 반전하므로,
+      아래 Left / Right는 사용자의 실제 왼손 / 오른손 기준입니다.
+
+      화면에서 보이는 배열:
+        왼쪽에 보이는 오른손: much, so
+        오른쪽에 보이는 왼손: i, love, hoonkyu
+
+      손가락 번호:
+        검지 끝  8
+        중지 끝 12
+        약지 끝 16
+
+      문구가 5개이므로 오른손 약지는 비워 두었습니다.
+      여섯 번째 문구를 추가할 경우 word: "" 부분만 수정하면 됩니다.
+    */
+
+    const CONFIG = {
+      modelUrl:
+        "https://storage.googleapis.com/mediapipe-models/" +
+        "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
+
+      wasmRoot:
+        "https://cdn.jsdelivr.net/npm/" +
+        "@mediapipe/tasks-vision@0.10.35/wasm",
+
+      assignments: {
+        Left: [
+          { tip: 16, word: "i", color: "#ff4e67" },
+          { tip: 12, word: "love", color: "#8df58b" },
+          { tip: 8, word: "hoonkyu", color: "#7f82ff" }
+        ],
+        Right: [
+          { tip: 16, word: "", color: "#ff77a9" },
+          { tip: 12, word: "much", color: "#ff5f9e" },
+          { tip: 8, word: "so", color: "#65e9ff" }
+        ]
+      },
+
+      allWords: ["i", "love", "hoonkyu", "so", "much"],
+
+      // 손바닥 너비 대비 엄지-손가락 거리 비율
+      pinchOnRatio: 0.36,
+      pinchOffRatio: 0.52,
+
+      // 이 프레임 수만큼 연속 접촉해야 선택
+      stableFrames: 3,
+
+      // iPhone 발열과 UI 끊김을 줄이기 위한 추론 간격
+      inferenceIntervalMs: 72,
+
+      // 모델에 전달할 최대 긴 변 길이
+      inferenceLongSide: 640,
+
+      completeDelayMs: 850
+    };
+
+    const HAND_CONNECTIONS = [
+      [0, 1], [1, 2], [2, 3], [3, 4],
+      [0, 5], [5, 6], [6, 7], [7, 8],
+      [5, 9], [9, 10], [10, 11], [11, 12],
+      [9, 13], [13, 14], [14, 15], [15, 16],
+      [13, 17], [17, 18], [18, 19], [19, 20],
+      [0, 17]
+    ];
+
+    const $ = (selector) => document.querySelector(selector);
+
+    const elements = {
+      camera: $("#camera"),
+      cameraLayer: $("#cameraLayer"),
+      overlay: $("#overlay"),
+      inferenceCanvas: $("#inferenceCanvas"),
+
+      introScreen: $("#introScreen"),
+      experienceScreen: $("#experienceScreen"),
+      completeScreen: $("#completeScreen"),
+
+      startButton: $("#startButton"),
+      resetButton: $("#resetButton"),
+      restartButton: $("#restartButton"),
+
+      statusPill: $("#statusPill"),
+      statusText: $("#statusText"),
+      instruction: $("#instruction"),
+      selectedWord: $("#selectedWord"),
+      progressFill: $("#progressFill"),
+      wordChips: [...document.querySelectorAll(".word-chip")],
+
+      flash: $("#flash"),
+      toast: $("#toast")
+    };
+
+    const overlayContext = elements.overlay.getContext("2d");
+    const inferenceContext = elements.inferenceCanvas.getContext("2d", {
+      alpha: false,
+      desynchronized: true
+    });
+
+    const state = {
+      landmarker: null,
+      stream: null,
+      running: false,
+      inferenceBusy: false,
+      lastInferenceAt: 0,
+      lastVideoTime: -1,
+      overlayWidth: 0,
+      overlayHeight: 0,
+      detectedHands: 0,
+      activatedWords: new Set(),
+      pinchStates: new Map(),
+      completing: false,
+      selectedWordTimer: null,
+      completeTimer: null
+    };
+
+    function showScreen(name) {
+      const screens = {
+        intro: elements.introScreen,
+        experience: elements.experienceScreen,
+        complete: elements.completeScreen
+      };
+
+      Object.entries(screens).forEach(([key, screen]) => {
+        screen.classList.toggle("hidden", key !== name);
+      });
+    }
+
+    function setStatus(text, type = "") {
+      elements.statusText.textContent = text;
+      elements.statusPill.classList.remove("ready", "error");
+
+      if (type) {
+        elements.statusPill.classList.add(type);
+      }
+    }
+
+    function showToast(message, duration = 2800) {
+      elements.toast.textContent = message;
+      elements.toast.classList.add("show");
+
+      clearTimeout(showToast.timer);
+
+      showToast.timer = setTimeout(() => {
+        elements.toast.classList.remove("show");
+      }, duration);
+    }
+
+    function resizeOverlay() {
+      const rect = elements.overlay.getBoundingClientRect();
+      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+
+      state.overlayWidth = rect.width;
+      state.overlayHeight = rect.height;
+
+      elements.overlay.width = Math.round(rect.width * dpr);
+      elements.overlay.height = Math.round(rect.height * dpr);
+      elements.overlay.style.width = `${rect.width}px`;
+      elements.overlay.style.height = `${rect.height}px`;
+
+      overlayContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+    }
+
+    function clearOverlay() {
+      overlayContext.clearRect(
+        0,
+        0,
+        state.overlayWidth,
+        state.overlayHeight
+      );
+    }
+
+    async function createHandLandmarker() {
+      if (state.landmarker) {
+        return state.landmarker;
+      }
+
+      const vision = await FilesetResolver.forVisionTasks(CONFIG.wasmRoot);
+
+      const commonOptions = {
+        runningMode: "VIDEO",
+        numHands: 2,
+        minHandDetectionConfidence: 0.55,
+        minHandPresenceConfidence: 0.55,
+        minTrackingConfidence: 0.5
+      };
+
+      // GPU 우선, 지원하지 않는 Safari 환경에서는 CPU로 자동 재시도
+      try {
+        state.landmarker = await HandLandmarker.createFromOptions(
+          vision,
+          {
+            ...commonOptions,
+            baseOptions: {
+              modelAssetPath: CONFIG.modelUrl,
+              delegate: "GPU"
+            }
+          }
+        );
+      } catch (gpuError) {
+        console.warn("GPU delegate failed. Retrying with CPU.", gpuError);
+
+        state.landmarker = await HandLandmarker.createFromOptions(
+          vision,
+          {
+            ...commonOptions,
+            baseOptions: {
+              modelAssetPath: CONFIG.modelUrl,
+              delegate: "CPU"
+            }
+          }
+        );
+      }
+
+      return state.landmarker;
+    }
+
+    async function startCamera() {
+      if (!navigator.mediaDevices?.getUserMedia) {
+        throw new Error("이 브라우저에서는 카메라를 사용할 수 없습니다.");
+      }
+
+      state.stream = await navigator.mediaDevices.getUserMedia({
+        audio: false,
+        video: {
+          facingMode: { ideal: "user" },
+          width: { ideal: 720 },
+          height: { ideal: 1280 },
+          frameRate: { ideal: 24, max: 30 }
+        }
+      });
+
+      elements.camera.srcObject = state.stream;
+
+      await new Promise((resolve) => {
+        if (elements.camera.readyState >= 2) {
+          resolve();
+          return;
+        }
+
+        elements.camera.addEventListener(
+          "loadedmetadata",
+          resolve,
+          { once: true }
+        );
+      });
+
+      await elements.camera.play();
+
+      elements.cameraLayer.classList.add("active");
+      resizeOverlay();
+      resizeInferenceCanvas();
+    }
+
+    function resizeInferenceCanvas() {
+      const sourceWidth = elements.camera.videoWidth;
+      const sourceHeight = elements.camera.videoHeight;
+
+      if (!sourceWidth || !sourceHeight) {
+        return;
+      }
+
+      const scale = Math.min(
+        1,
+        CONFIG.inferenceLongSide / Math.max(sourceWidth, sourceHeight)
+      );
+
+      elements.inferenceCanvas.width = Math.max(
+        1,
+        Math.round(sourceWidth * scale)
+      );
+
+      elements.inferenceCanvas.height = Math.max(
+        1,
+        Math.round(sourceHeight * scale)
+      );
+    }
+
+    function drawMirroredInferenceFrame() {
+      const width = elements.inferenceCanvas.width;
+      const height = elements.inferenceCanvas.height;
+
+      if (!width || !height) {
+        return false;
+      }
+
+      inferenceContext.save();
+      inferenceContext.fillStyle = "#000";
+      inferenceContext.fillRect(0, 0, width, height);
+
+      inferenceContext.translate(width, 0);
+      inferenceContext.scale(-1, 1);
+      inferenceContext.drawImage(
+        elements.camera,
+        0,
+        0,
+        width,
+        height
+      );
+
+      inferenceContext.restore();
+      return true;
+    }
+
+    function getDisplayMetrics() {
+      const videoWidth = elements.camera.videoWidth;
+      const videoHeight = elements.camera.videoHeight;
+
+      const scale = Math.max(
+        state.overlayWidth / videoWidth,
+        state.overlayHeight / videoHeight
+      );
+
+      const renderedWidth = videoWidth * scale;
+      const renderedHeight = videoHeight * scale;
+
+      return {
+        renderedWidth,
+        renderedHeight,
+        offsetX: (state.overlayWidth - renderedWidth) / 2,
+        offsetY: (state.overlayHeight - renderedHeight) / 2
+      };
+    }
+
+    function landmarkToScreen(landmark, metrics) {
+      return {
+        x: metrics.offsetX + landmark.x * metrics.renderedWidth,
+        y: metrics.offsetY + landmark.y * metrics.renderedHeight
+      };
+    }
+
+    function distance3D(a, b) {
+      return Math.hypot(
+        a.x - b.x,
+        a.y - b.y,
+        (a.z || 0) - (b.z || 0)
+      );
+    }
+
+    function getPalmScale(landmarks) {
+      const palmWidth = distance3D(landmarks[5], landmarks[17]);
+      const palmLength = distance3D(landmarks[0], landmarks[9]);
+
+      return Math.max(
+        (palmWidth + palmLength) / 2,
+        0.0001
+      );
+    }
+
+    function normalizeHandName(categoryName) {
+      if (categoryName === "Left" || categoryName === "Right") {
+        return categoryName;
+      }
+
+      return "";
+    }
+
+    function getHandednessName(results, handIndex) {
+      const handednessList =
+        results.handednesses ??
+        results.handedness ??
+        [];
+
+      const category = handednessList[handIndex]?.[0];
+
+      return normalizeHandName(
+        category?.categoryName ??
+        category?.displayName ??
+        ""
+      );
+    }
+
+    function getPinchStateKey(handName, tipIndex) {
+      return `${handName}:${tipIndex}`;
+    }
+
+    function getPinchState(handName, tipIndex) {
+      const key = getPinchStateKey(handName, tipIndex);
+
+      if (!state.pinchStates.has(key)) {
+        state.pinchStates.set(key, {
+          active: false,
+          stableCount: 0
+        });
+      }
+
+      return state.pinchStates.get(key);
+    }
+
+    function updatePinches(handName, landmarks) {
+      const assignments = CONFIG.assignments[handName] ?? [];
+      const palmScale = getPalmScale(landmarks);
+      const thumbTip = landmarks[4];
+
+      const candidates = assignments
+        .filter((assignment) => assignment.word)
+        .map((assignment) => ({
+          ...assignment,
+          ratio:
+            distance3D(thumbTip, landmarks[assignment.tip]) /
+            palmScale
+        }))
+        .sort((a, b) => a.ratio - b.ratio);
+
+      const nearest = candidates[0] ?? null;
+
+      candidates.forEach((candidate) => {
+        const pinchState = getPinchState(
+          handName,
+          candidate.tip
+        );
+
+        const isNearest =
+          nearest &&
+          nearest.tip === candidate.tip;
+
+        if (
+          isNearest &&
+          candidate.ratio <= CONFIG.pinchOnRatio
+        ) {
+          if (!pinchState.active) {
+            pinchState.stableCount += 1;
+
+            if (
+              pinchState.stableCount >= CONFIG.stableFrames
+            ) {
+              pinchState.active = true;
+              pinchState.stableCount = 0;
+              selectWord(candidate.word);
+            }
+          }
+        } else if (
+          candidate.ratio >= CONFIG.pinchOffRatio
+        ) {
+          pinchState.active = false;
+          pinchState.stableCount = 0;
+        } else if (!isNearest && !pinchState.active) {
+          pinchState.stableCount = 0;
+        }
+      });
+
+      return nearest;
+    }
+
+    function selectWord(word) {
+      if (!word || state.completing) {
+        return;
+      }
+
+      state.activatedWords.add(word);
+      updateProgress();
+      showSelectedWord(word);
+      playFlash();
+      spawnParticles(24);
+
+      if (navigator.vibrate) {
+        navigator.vibrate(32);
+      }
+
+      if (
+        state.activatedWords.size === CONFIG.allWords.length
+      ) {
+        state.completing = true;
+
+        clearTimeout(state.completeTimer);
+
+        state.completeTimer = setTimeout(
+          completeExperience,
+          CONFIG.completeDelayMs
+        );
+      }
+    }
+
+    function showSelectedWord(word) {
+      clearTimeout(state.selectedWordTimer);
+
+      elements.selectedWord.textContent = word;
+      elements.selectedWord.classList.remove("show");
+      void elements.selectedWord.offsetWidth;
+      elements.selectedWord.classList.add("show");
+
+      state.selectedWordTimer = setTimeout(() => {
+        elements.selectedWord.classList.remove("show");
+      }, 920);
+    }
+
+    function updateProgress() {
+      elements.wordChips.forEach((chip) => {
+        chip.classList.toggle(
+          "active",
+          state.activatedWords.has(chip.dataset.word)
+        );
+      });
+
+      const percentage =
+        state.activatedWords.size /
+        CONFIG.allWords.length *
+        100;
+
+      elements.progressFill.style.width = `${percentage}%`;
+    }
+
+    function drawResults(results) {
+      clearOverlay();
+
+      const landmarksList = results.landmarks ?? [];
+      state.detectedHands = landmarksList.length;
+
+      updateStatusForDetectedHands();
+
+      if (!landmarksList.length) {
+        return;
+      }
+
+      const metrics = getDisplayMetrics();
+
+      landmarksList.forEach((landmarks, handIndex) => {
+        const handName = getHandednessName(
+          results,
+          handIndex
+        );
+
+        if (!handName) {
+          return;
+        }
+
+        const nearest = updatePinches(
+          handName,
+          landmarks
+        );
+
+        drawHandSkeleton(
+          landmarks,
+          metrics,
+          nearest
+        );
+
+        drawFingerAssignments(
+          handName,
+          landmarks,
+          metrics,
+          nearest
+        );
+      });
+    }
+
+    function updateStatusForDetectedHands() {
+      if (state.detectedHands >= 2) {
+        setStatus(
+          "양손 인식 완료 · 엄지와 단어를 맞대세요",
+          "ready"
+        );
+
+        elements.instruction.textContent =
+          "엄지와 원하는 단어의 손가락 끝을 맞대어 선택해 주세요.";
+      } else if (state.detectedHands === 1) {
+        setStatus("한 손을 더 보여 주세요");
+
+        elements.instruction.textContent =
+          "양손이 모두 화면 안에 들어오도록 조금 뒤로 이동해 주세요.";
+      } else {
+        setStatus("양손을 찾고 있어요");
+
+        elements.instruction.textContent =
+          "손바닥이 카메라를 향하도록 양손을 펼쳐 주세요.";
+      }
+    }
+
+    function drawHandSkeleton(
+      landmarks,
+      metrics,
+      nearest
+    ) {
+      overlayContext.save();
+      overlayContext.lineCap = "round";
+      overlayContext.lineJoin = "round";
+      overlayContext.lineWidth = 1.4;
+      overlayContext.strokeStyle =
+        "rgba(101, 233, 255, 0.34)";
+
+      HAND_CONNECTIONS.forEach(([startIndex, endIndex]) => {
+        const start = landmarkToScreen(
+          landmarks[startIndex],
+          metrics
+        );
+
+        const end = landmarkToScreen(
+          landmarks[endIndex],
+          metrics
+        );
+
+        overlayContext.beginPath();
+        overlayContext.moveTo(start.x, start.y);
+        overlayContext.lineTo(end.x, end.y);
+        overlayContext.stroke();
+      });
+
+      landmarks.forEach((landmark, index) => {
+        const point = landmarkToScreen(
+          landmark,
+          metrics
+        );
+
+        overlayContext.beginPath();
+        overlayContext.arc(
+          point.x,
+          point.y,
+          index === 4 ? 3.6 : 2.1,
+          0,
+          Math.PI * 2
+        );
+
+        overlayContext.fillStyle =
+          index === 4
+            ? "rgba(255, 255, 255, 0.92)"
+            : "rgba(101, 233, 255, 0.54)";
+
+        overlayContext.fill();
+      });
+
+      if (nearest) {
+        const thumb = landmarkToScreen(
+          landmarks[4],
+          metrics
+        );
+
+        const finger = landmarkToScreen(
+          landmarks[nearest.tip],
+          metrics
+        );
+
+        const proximity = Math.max(
+          0,
+          Math.min(
+            1,
+            1 -
+            nearest.ratio /
+            CONFIG.pinchOffRatio
+          )
+        );
+
+        overlayContext.beginPath();
+        overlayContext.moveTo(thumb.x, thumb.y);
+        overlayContext.lineTo(finger.x, finger.y);
+        overlayContext.lineWidth = 2 + proximity * 2;
+        overlayContext.strokeStyle =
+          `rgba(255, 255, 255, ${0.12 + proximity * 0.65})`;
+        overlayContext.stroke();
+      }
+
+      overlayContext.restore();
+    }
+
+    function drawFingerAssignments(
+      handName,
+      landmarks,
+      metrics,
+      nearest
+    ) {
+      const assignments =
+        CONFIG.assignments[handName] ?? [];
+
+      assignments.forEach((assignment) => {
+        if (!assignment.word) {
+          return;
+        }
+
+        const tipPoint = landmarkToScreen(
+          landmarks[assignment.tip],
+          metrics
+        );
+
+        const isNearest =
+          nearest &&
+          nearest.tip === assignment.tip;
+
+        const isClose =
+          isNearest &&
+          nearest.ratio <= CONFIG.pinchOffRatio;
+
+        drawFingerDot(
+          tipPoint,
+          assignment.color,
+          isClose
+        );
+
+        drawFingerLabel(
+          tipPoint,
+          assignment.word,
+          assignment.color,
+          isClose
+        );
+      });
+    }
+
+    function drawFingerDot(point, color, active) {
+      overlayContext.save();
+
+      if (active) {
+        overlayContext.beginPath();
+        overlayContext.arc(
+          point.x,
+          point.y,
+          11,
+          0,
+          Math.PI * 2
+        );
+        overlayContext.fillStyle = color + "30";
+        overlayContext.fill();
+      }
+
+      overlayContext.beginPath();
+      overlayContext.arc(
+        point.x,
+        point.y,
+        active ? 5.8 : 4.4,
+        0,
+        Math.PI * 2
+      );
+
+      overlayContext.fillStyle = "#ff314f";
+      overlayContext.shadowColor = color;
+      overlayContext.shadowBlur = active ? 18 : 9;
+      overlayContext.fill();
+
+      overlayContext.restore();
+    }
+
+    function drawFingerLabel(
+      point,
+      text,
+      color,
+      active
+    ) {
+      overlayContext.save();
+
+      const fontSize =
+        Math.max(
+          13,
+          Math.min(19, state.overlayWidth * 0.044)
+        );
+
+      overlayContext.font =
+        `italic 700 ${fontSize}px Georgia, ` +
+        `"Times New Roman", serif`;
+
+      overlayContext.textAlign = "center";
+      overlayContext.textBaseline = "bottom";
+      overlayContext.fillStyle = color;
+      overlayContext.shadowColor =
+        "rgba(0, 0, 0, 0.82)";
+      overlayContext.shadowBlur = 8;
+      overlayContext.lineWidth = active ? 4 : 3;
+      overlayContext.strokeStyle =
+        "rgba(4, 4, 8, 0.72)";
+
+      const y = point.y - (active ? 14 : 11);
+
+      overlayContext.strokeText(
+        text,
+        point.x,
+        y
+      );
+
+      overlayContext.fillText(
+        text,
+        point.x,
+        y
+      );
+
+      overlayContext.restore();
+    }
+
+    async function inferenceLoop(timestamp) {
+      if (!state.running) {
+        return;
+      }
+
+      requestAnimationFrame(inferenceLoop);
+
+      if (
+        state.inferenceBusy ||
+        timestamp - state.lastInferenceAt <
+          CONFIG.inferenceIntervalMs ||
+        elements.camera.readyState < 2 ||
+        elements.camera.currentTime === state.lastVideoTime
+      ) {
+        return;
+      }
+
+      state.inferenceBusy = true;
+      state.lastInferenceAt = timestamp;
+      state.lastVideoTime = elements.camera.currentTime;
+
+      try {
+        if (!drawMirroredInferenceFrame()) {
+          return;
+        }
+
+        const results =
+          state.landmarker.detectForVideo(
+            elements.inferenceCanvas,
+            timestamp
+          );
+
+        drawResults(results);
+      } catch (error) {
+        console.error(error);
+        setStatus("손 인식 중 오류가 발생했습니다", "error");
+        elements.instruction.textContent =
+          error?.message ?? String(error);
+      } finally {
+        state.inferenceBusy = false;
+      }
+    }
+
+    async function startExperience() {
+      elements.startButton.disabled = true;
+      elements.startButton.querySelector("span").textContent =
+        "카메라와 모델 준비 중...";
+
+      setStatus("준비 중...");
+
+      try {
+        await Promise.all([
+          createHandLandmarker(),
+          startCamera()
+        ]);
+
+        resetSelection();
+        showScreen("experience");
+
+        elements.resetButton.hidden = false;
+        state.running = true;
+
+        setStatus("양손을 찾고 있어요");
+        requestAnimationFrame(inferenceLoop);
+      } catch (error) {
+        console.error(error);
+
+        const message =
+          error?.name === "NotAllowedError"
+            ? "카메라 권한이 필요합니다. Safari 설정에서 카메라를 허용해 주세요."
+            : error?.message ?? "시작할 수 없습니다.";
+
+        stopCamera();
+        showToast(message, 4800);
+        setStatus("시작할 수 없습니다", "error");
+      } finally {
+        elements.startButton.disabled = false;
+        elements.startButton.querySelector("span").textContent =
+          "카메라 시작하기";
+      }
+    }
+
+    function resetSelection() {
+      state.activatedWords.clear();
+      state.pinchStates.clear();
+      state.completing = false;
+      state.detectedHands = 0;
+
+      clearTimeout(state.selectedWordTimer);
+      clearTimeout(state.completeTimer);
+      state.completeTimer = null;
+
+      elements.selectedWord.classList.remove("show");
+      elements.selectedWord.textContent = "";
+
+      updateProgress();
+      clearOverlay();
+
+      elements.instruction.textContent =
+        "양손을 화면 안에 펼쳐 주세요.";
+    }
+
+    function resetWhileRunning() {
+      const shouldRestartLoop = !state.running;
+
+      resetSelection();
+      showScreen("experience");
+
+      if (state.stream && state.landmarker) {
+        state.running = true;
+        setStatus("양손을 찾고 있어요");
+
+        if (shouldRestartLoop) {
+          requestAnimationFrame(inferenceLoop);
+        }
+      }
+    }
+
+    function completeExperience() {
+      state.running = false;
+      clearOverlay();
+      showScreen("complete");
+      setStatus("메시지 완성", "ready");
+      spawnParticles(78);
+      playFlash();
+    }
+
+    function playFlash() {
+      elements.flash.classList.remove("play");
+      void elements.flash.offsetWidth;
+      elements.flash.classList.add("play");
+    }
+
+    function spawnParticles(count = 24) {
+      const colors = [
+        "#ff5f9e",
+        "#9879ff",
+        "#65e9ff",
+        "#fff4cb",
+        "#ffffff"
+      ];
+
+      const centerX = window.innerWidth / 2;
+      const centerY = window.innerHeight * 0.47;
+
+      for (let index = 0; index < count; index++) {
+        const particle = document.createElement("i");
+        const angle = Math.random() * Math.PI * 2;
+        const distance =
+          80 +
+          Math.random() *
+          Math.min(260, window.innerWidth * 0.62);
+
+        particle.className = "particle";
+        particle.style.background =
+          colors[
+            Math.floor(Math.random() * colors.length)
+          ];
+
+        particle.style.setProperty(
+          "--x0",
+          `${centerX}px`
+        );
+
+        particle.style.setProperty(
+          "--y0",
+          `${centerY}px`
+        );
+
+        particle.style.setProperty(
+          "--x1",
+          `${centerX + Math.cos(angle) * distance}px`
+        );
+
+        particle.style.setProperty(
+          "--y1",
+          `${centerY + Math.sin(angle) * distance}px`
+        );
+
+        particle.style.setProperty(
+          "--rot",
+          `${Math.round(Math.random() * 720 - 360)}deg`
+        );
+
+        particle.style.setProperty(
+          "--duration",
+          `${700 + Math.random() * 720}ms`
+        );
+
+        document.body.appendChild(particle);
+
+        particle.addEventListener(
+          "animationend",
+          () => particle.remove()
+        );
+      }
+    }
+
+    function stopCamera() {
+      state.running = false;
+
+      if (!state.stream) {
+        return;
+      }
+
+      state.stream
+        .getTracks()
+        .forEach((track) => track.stop());
+
+      state.stream = null;
+      elements.camera.srcObject = null;
+      elements.cameraLayer.classList.remove("active");
+    }
+
+    elements.startButton.addEventListener(
+      "click",
+      startExperience
+    );
+
+    elements.resetButton.addEventListener(
+      "click",
+      resetWhileRunning
+    );
+
+    elements.restartButton.addEventListener(
+      "click",
+      resetWhileRunning
+    );
+
+    window.addEventListener(
+      "resize",
+      resizeOverlay
+    );
+
+    window.addEventListener(
+      "orientationchange",
+      () => {
+        setTimeout(() => {
+          resizeOverlay();
+          resizeInferenceCanvas();
+        }, 280);
+      }
+    );
+
+    document.addEventListener(
+      "visibilitychange",
+      () => {
+        if (document.hidden) {
+          state.running = false;
+          return;
+        }
+
+        if (
+          state.stream &&
+          state.landmarker &&
+          !state.completing
+        ) {
+          state.running = true;
+          requestAnimationFrame(inferenceLoop);
+        }
+      }
+    );
+
+    window.addEventListener("pagehide", stopCamera);
+
+    resizeOverlay();
+  </script>
+</body>
+</html>
