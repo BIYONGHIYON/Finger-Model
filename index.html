@@ -1,7 +1,7 @@
 <!--
 =========================================================
 1. 문구 수정
-    - 스크립트 영역의 TEXT_CONFIG 내부 (line 864)
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 872)
 
 2. 결과 화면 켜기/끄기
     - 시작 화면의 "결과 화면" 스위치에서 선택
@@ -21,15 +21,13 @@
 
 
 5. 메인 컬러(테마 색상) 수정
-    - 상단 스타일 영역 맨 위쪽(line 50)의 :root { ... } 블록
+    - 상단 스타일 영역 맨 위쪽(line 48)의 :root { ... } 블록
     - --pink, --purple, --cyan 뒤에 있는 색상 코드(예: #ff5f9e)를 변경
 
 6. 웹사이트에 반영
     - 수정 후 저장, GitHub에 commit & push, 약 2분내로 반영됨
 =========================================================
-
 -->
-
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -335,41 +333,51 @@
       cursor: wait;
     }
 
+    /* 시작 화면 왼쪽 상단의 작은 결과 화면 토글 */
     .intro-settings {
-      width: 100%;
-      margin: 0 0 12px;
-      padding: 14px 16px;
-      border: 1px solid rgba(255, 255, 255, 0.15);
-      border-radius: 19px;
-      background: rgba(8, 8, 14, 0.46);
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
+      position: absolute;
+      top: calc(var(--safe-top) + 8px);
+      left: 14px;
+      z-index: 15;
+      width: auto;
+      margin: 0;
+      padding: 0;
+      border: 0;
+      background: transparent;
     }
 
     .toggle-row {
       display: flex;
       align-items: center;
-      justify-content: space-between;
-      gap: 16px;
+      justify-content: center;
+      gap: 7px;
+      min-height: 34px;
+      padding: 0 9px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(5, 5, 10, 0.7);
       cursor: pointer;
       user-select: none;
+      backdrop-filter: blur(14px);
+      -webkit-backdrop-filter: blur(14px);
+      box-shadow: 0 7px 20px rgba(0, 0, 0, 0.2);
     }
 
     .toggle-copy {
-      display: grid;
-      gap: 4px;
+      display: block;
       min-width: 0;
     }
 
     .toggle-copy strong {
-      font-size: 14px;
+      display: block;
+      font-size: 10px;
       font-weight: 760;
+      line-height: 1;
+      white-space: nowrap;
     }
 
     .toggle-copy small {
-      color: rgba(255, 255, 255, 0.55);
-      font-size: 11px;
-      line-height: 1.4;
+      display: none;
     }
 
     .toggle-row input {
@@ -381,8 +389,8 @@
     .toggle-switch {
       position: relative;
       flex: 0 0 auto;
-      width: 48px;
-      height: 28px;
+      width: 32px;
+      height: 18px;
       border: 1px solid rgba(255, 255, 255, 0.2);
       border-radius: 999px;
       background: rgba(255, 255, 255, 0.11);
@@ -392,13 +400,13 @@
     .toggle-switch::after {
       content: "";
       position: absolute;
-      top: 3px;
-      left: 3px;
-      width: 20px;
-      height: 20px;
+      top: 2px;
+      left: 2px;
+      width: 12px;
+      height: 12px;
       border-radius: 50%;
       background: #fff;
-      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+      box-shadow: 0 2px 7px rgba(0, 0, 0, 0.3);
       transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
     }
 
@@ -408,7 +416,7 @@
     }
 
     .toggle-row input:checked + .toggle-switch::after {
-      transform: translateX(20px);
+      transform: translateX(14px);
     }
 
     @keyframes buttonShine {
@@ -999,7 +1007,9 @@
       recordingUrl: null,
       recordingMimeType: "",
       recordingStartedAt: 0,
-      finalizeRecordingPromise: null
+      finalizeRecordingPromise: null,
+      geometrySignature: "",
+      geometryWarmupFrames: 0
     };
 
     let wakeLock = null;
@@ -1052,10 +1062,10 @@
       }
 
       const candidates = [
-        "video/mp4;codecs=avc1.42E01E",
+        "video/mp4;codecs=avc1.42E01E,mp4a.40.2",
         "video/mp4",
-        "video/webm;codecs=vp9",
-        "video/webm;codecs=vp8",
+        "video/webm;codecs=vp9,opus",
+        "video/webm;codecs=vp8,opus",
         "video/webm"
       ];
 
@@ -1176,9 +1186,25 @@
 
       const mimeType = getSupportedRecordingMimeType();
       const stream = elements.recordingCanvas.captureStream(CONFIG.recordingFps);
+      // recordingCanvas의 30fps 영상에 마이크 트랙을 합칩니다.
+      // 브라우저 TTS는 직접 MediaStream으로 받을 수 없으므로,
+      // 기기 스피커에서 재생된 TTS가 마이크로 함께 들어오도록
+      // 에코 제거를 끈 마이크 트랙을 사용합니다.
+      const microphoneTrack = state.stream?.getAudioTracks?.()[0];
+      if (microphoneTrack) {
+        stream.addTrack(microphoneTrack.clone());
+      }
+
       const options = mimeType
-        ? { mimeType, videoBitsPerSecond: 6_000_000 }
-        : { videoBitsPerSecond: 6_000_000 };
+        ? {
+            mimeType,
+            videoBitsPerSecond: 6_000_000,
+            audioBitsPerSecond: 128_000
+          }
+        : {
+            videoBitsPerSecond: 6_000_000,
+            audioBitsPerSecond: 128_000
+          };
 
       let recorder;
 
@@ -1341,6 +1367,76 @@
       }
     }
 
+    function getGeometrySignature() {
+      const cameraRect = elements.camera.getBoundingClientRect();
+      const overlayRect = elements.overlay.getBoundingClientRect();
+
+      return [
+        elements.camera.videoWidth,
+        elements.camera.videoHeight,
+        Math.round(cameraRect.left * 10),
+        Math.round(cameraRect.top * 10),
+        Math.round(cameraRect.width * 10),
+        Math.round(cameraRect.height * 10),
+        Math.round(overlayRect.left * 10),
+        Math.round(overlayRect.top * 10),
+        Math.round(overlayRect.width * 10),
+        Math.round(overlayRect.height * 10)
+      ].join(":");
+    }
+
+    function syncCameraGeometry(force = false) {
+      if (!elements.camera.videoWidth || !elements.camera.videoHeight) {
+        return false;
+      }
+
+      const signature = getGeometrySignature();
+
+      if (!force && signature === state.geometrySignature) {
+        return false;
+      }
+
+      state.geometrySignature = signature;
+      resizeOverlay();
+      resizeInferenceCanvas();
+      return true;
+    }
+
+    async function waitForStableCameraGeometry() {
+      // 첫 권한 승인 직후에는 모바일 브라우저의 주소창/안전영역과
+      // 실제 카메라 프레임 크기가 한두 프레임 늦게 확정될 수 있습니다.
+      await new Promise((resolve) => {
+        if (typeof elements.camera.requestVideoFrameCallback !== "function") {
+          setTimeout(resolve, 180);
+          return;
+        }
+
+        let remainingFrames = 3;
+
+        const waitNextFrame = () => {
+          elements.camera.requestVideoFrameCallback(() => {
+            remainingFrames -= 1;
+
+            if (remainingFrames <= 0) {
+              resolve();
+              return;
+            }
+
+            waitNextFrame();
+          });
+        };
+
+        waitNextFrame();
+      });
+
+      await new Promise((resolve) => {
+        requestAnimationFrame(() => requestAnimationFrame(resolve));
+      });
+
+      syncCameraGeometry(true);
+      state.geometryWarmupFrames = 18;
+    }
+
     function clearOverlay() {
       overlayContext.clearRect(
         0,
@@ -1402,13 +1498,22 @@
       const screenRatio = window.innerHeight / window.innerWidth;
 
       state.stream = await navigator.mediaDevices.getUserMedia({
-        audio: false,
+        audio: {
+          channelCount: { ideal: 1 },
+          sampleRate: { ideal: 48000 },
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
+        },
         video: {
           facingMode: { ideal: "user" },
           resizeMode: "none",
           width: { ideal: 3840 },
           height: { ideal: 3840 },
-          frameRate: { ideal: 24, max: 30 }
+          frameRate: {
+            ideal: CONFIG.recordingFps,
+            max: CONFIG.recordingFps
+          }
         }
       });
 
@@ -1449,8 +1554,7 @@
       await elements.camera.play();
 
       elements.cameraLayer.classList.add("active");
-      resizeOverlay();
-      resizeInferenceCanvas();
+      await waitForStableCameraGeometry();
     }
 
     function resizeInferenceCanvas() {
@@ -1506,10 +1610,14 @@
     function getDisplayMetrics() {
       const videoWidth = elements.camera.videoWidth;
       const videoHeight = elements.camera.videoHeight;
+      const cameraRect = elements.camera.getBoundingClientRect();
+      const overlayRect = elements.overlay.getBoundingClientRect();
+      const displayWidth = cameraRect.width || state.overlayWidth;
+      const displayHeight = cameraRect.height || state.overlayHeight;
 
       const scale = Math.max(
-        state.overlayWidth / videoWidth,
-        state.overlayHeight / videoHeight
+        displayWidth / videoWidth,
+        displayHeight / videoHeight
       );
 
       const renderedWidth = videoWidth * scale;
@@ -1518,8 +1626,12 @@
       return {
         renderedWidth,
         renderedHeight,
-        offsetX: (state.overlayWidth - renderedWidth) / 2,
-        offsetY: (state.overlayHeight - renderedHeight) / 2
+        offsetX:
+          cameraRect.left - overlayRect.left +
+          (displayWidth - renderedWidth) / 2,
+        offsetY:
+          cameraRect.top - overlayRect.top +
+          (displayHeight - renderedHeight) / 2
       };
     }
 
@@ -1665,6 +1777,11 @@
 
       const utterance = new SpeechSynthesisUtterance(ttsWord);
       utterance.lang = lang;
+      utterance.volume = 1;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
       window.speechSynthesis.speak(utterance);
 
       playFlash();
@@ -1973,6 +2090,14 @@
 
       requestAnimationFrame(inferenceLoop);
 
+      if (state.geometryWarmupFrames > 0) {
+        if (state.geometryWarmupFrames % 3 === 0) {
+          syncCameraGeometry();
+        }
+
+        state.geometryWarmupFrames -= 1;
+      }
+
       if (
         state.inferenceBusy ||
         timestamp - state.lastInferenceAt <
@@ -2021,6 +2146,7 @@
 
         resetSelection();
         showScreen("experience");
+        await waitForStableCameraGeometry();
 
         state.running = true;
 
@@ -2031,7 +2157,7 @@
 
         const message =
           error?.name === "NotAllowedError"
-            ? "카메라 권한이 필요합니다. Safari 설정에서 카메라를 허용해 주세요."
+            ? "카메라와 마이크 권한이 필요합니다. 브라우저 설정에서 모두 허용해 주세요."
             : error?.message ?? "시작할 수 없습니다.";
 
         stopCamera();
@@ -2211,15 +2337,26 @@
 
     window.addEventListener(
       "resize",
-      resizeOverlay
+      () => {
+        syncCameraGeometry(true);
+        state.geometryWarmupFrames = 8;
+      }
+    );
+
+    window.visualViewport?.addEventListener(
+      "resize",
+      () => {
+        syncCameraGeometry(true);
+        state.geometryWarmupFrames = 8;
+      }
     );
 
     window.addEventListener(
       "orientationchange",
       () => {
         setTimeout(() => {
-          resizeOverlay();
-          resizeInferenceCanvas();
+          syncCameraGeometry(true);
+          state.geometryWarmupFrames = 12;
         }, 280);
       }
     );
@@ -2232,7 +2369,9 @@
           return;
         }
 
-        requestWakeLock(); 
+        requestWakeLock();
+        syncCameraGeometry(true);
+        state.geometryWarmupFrames = 8;
 
         if (
           state.stream &&
