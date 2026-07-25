@@ -1,7 +1,8 @@
 <!--
-=======================================
-문구수정 : 하단 645줄 영역
-=======================================
+=========================================================
+문구수정 : 하단 653줄
+결과화면 없애기 : 672줄 | true : 결과화면 없음 | false : 결과화면 있음
+=========================================================
 -->
 <!DOCTYPE html>
 <html lang="ko">
@@ -199,6 +200,13 @@
         calc(var(--safe-top) + 70px)
         22px
         calc(var(--safe-bottom) + 25px);
+    }
+
+    .intro-decoration {
+      position: absolute;
+      inset: 0;
+      overflow: hidden;
+      pointer-events: none;
     }
 
     .eyebrow {
@@ -612,7 +620,7 @@
         <div class="word-list">
           <div class="word-chip" data-word="i">i</div>
           <div class="word-chip" data-word="love">love</div>
-          <div class="word-chip" data-word="hoonkyu">hoonkyu</div>
+          <div class="word-chip" data-word="hooonkyu">hooonkyu</div>
           <div class="word-chip" data-word="so">so</div>
           <div class="word-chip" data-word="much">much</div>
         </div>
@@ -647,7 +655,7 @@
       introCopy: "멘트 작성2",//시작화면 하단 작은 글씨
       startBtn: "카메라 시작하기",//시작버튼
       completeEyebrow: "멘트 작성3",//결과화면 제목 위 작은 글씨
-      completeTitle: "i love<br />hoonkyu<br />so much",//결과화면 제목-br은 줄바꿈임
+      completeTitle: "i love<br />hooonkyu<br />so much",//결과화면 제목-br은 줄바꿈임
       completeCopy: "멘트 작성4",//결과화면 제목 아래 작은 글씨
       restartBtn: "다시 시작하기",
       loadingText: "카메라와 모델 준비 중..."
@@ -661,6 +669,7 @@
     "use strict";
 
     const CONFIG = {
+      endlessMode: true,//이거 변경하면 됩니다
       modelUrl:
         "https://storage.googleapis.com/mediapipe-models/" +
         "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
@@ -673,7 +682,7 @@
         Left: [
           { tip: 16, word: "much", color: "#ff4e67" },
           { tip: 12, word: "so", color: "#8df58b" },
-          { tip: 8, word: "hoonkyu", color: "#7f82ff" }
+          { tip: 8, word: "hooonkyu", color: "#7f82ff" }
         ],
         Right: [
           { tip: 16, word: "", color: "#ff77a9" },
@@ -682,7 +691,7 @@
         ]
       },
 
-      allWords: ["i", "love", "hoonkyu", "so", "much"],
+      allWords: ["i", "love", "hooonkyu", "so", "much"],
 
       pinchOnRatio: 0.36,
       pinchOffRatio: 0.52,
@@ -727,6 +736,10 @@
       flash: $("#flash"),
       toast: $("#toast")
     };
+
+    if (CONFIG.endlessMode) {
+      $(".bottom-panel").style.display = "none";
+    }
 
     $("#ui-intro-main").innerHTML = TEXT_CONFIG.introMain;
     $("#ui-intro-sub").innerHTML = TEXT_CONFIG.introSub;
@@ -1117,8 +1130,11 @@
         return;
       }
 
-      state.activatedWords.add(word);
-      updateProgress();
+      if (!CONFIG.endlessMode) {
+        state.activatedWords.add(word);
+        updateProgress();
+      }
+
       showSelectedWord(word);
 
       let ttsWord = word;
@@ -1140,17 +1156,19 @@
         navigator.vibrate(32);
       }
 
-      if (
-        state.activatedWords.size === CONFIG.allWords.length
-      ) {
-        state.completing = true;
+      if (!CONFIG.endlessMode) {
+        if (
+          state.activatedWords.size === CONFIG.allWords.length
+        ) {
+          state.completing = true;
 
-        clearTimeout(state.completeTimer);
+          clearTimeout(state.completeTimer);
 
-        state.completeTimer = setTimeout(
-          completeExperience,
-          CONFIG.completeDelayMs
-        );
+          state.completeTimer = setTimeout(
+            completeExperience,
+            CONFIG.completeDelayMs
+          );
+        }
       }
     }
 
@@ -1517,7 +1535,9 @@
       elements.selectedWord.classList.remove("show");
       elements.selectedWord.textContent = "";
 
-      updateProgress();
+      if (!CONFIG.endlessMode) {
+        updateProgress();
+      }
       clearOverlay();
     }
 
