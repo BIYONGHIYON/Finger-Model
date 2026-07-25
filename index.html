@@ -1,7 +1,7 @@
 <!--
 =========================================================
 1. 문구 수정
-    - 스크립트 영역의 TEXT_CONFIG 내부 (line 874)
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 876)
 
 2. 결과 화면 켜기/끄기
     - 시작 화면의 "결과 화면" 스위치에서 선택
@@ -18,7 +18,7 @@
 4. 폰트 수정
     - 코드에서 Ctrl+F 키를 눌러 'font-family'를 검색
     - 일반 텍스트 폰트 : 상단 스타일 영역의 body { font-family: ... } 부분 수정
-    - 영어/강조 폰트 (단어 칩, 선택된 단어 등) : .selected-word, .word-chip 영역의 font-family 수정
+    - 영어/강조 폰트 : .selected-word, .word-chip 영역의 font-family 수정
 
 
 5. 메인 컬러(테마 색상) 수정
@@ -203,7 +203,8 @@
 
     /* 촬영 중에는 배경의 원형 장식을 모두 숨김 */
     .app.camera-mode .orb,
-    .app.camera-mode .guide-ring {
+    .app.camera-mode .guide-ring,
+    .app.camera-mode .noise {
       display: none;
     }
 
@@ -865,6 +866,7 @@
 
     <canvas id="inferenceCanvas" hidden></canvas>
     <canvas id="recordingCanvas" hidden></canvas>
+    <canvas id="recordingOverlayCanvas" hidden></canvas>
     <div class="flash" id="flash"></div>
     <div class="toast" id="toast"></div>
   </main>
@@ -892,8 +894,12 @@
     const CONFIG = {
       endlessMode: true,
       recordingFps: 30,
-      recordingLongSide: 1280,
-      microphoneGain: 1.8,
+      // 960px 세로 해상도는 Safari에서 30fps 합성과 인코딩을
+      // 안정적으로 유지하면서 모바일 화면에는 충분한 품질을 제공합니다.
+      recordingLongSide: 960,
+      recordingVideoBitsPerSecond: 4_500_000,
+      recordingAudioBitsPerSecond: 192_000,
+      recordingMicGain: 3.2,
       ttsVolume: 1,
       modelUrl:
         "https://storage.googleapis.com/mediapipe-models/" +
@@ -923,9 +929,10 @@
 
       stableFrames: 3,
 
-      inferenceIntervalMs: 72,
+      // 관절은 약 10fps로 갱신하되 카메라 녹화는 독립적으로 30fps를 유지합니다.
+      inferenceIntervalMs: 100,
 
-      inferenceLongSide: 640,
+      inferenceLongSide: 384,
 
       completeDelayMs: 850
     };
@@ -948,6 +955,7 @@
       overlay: $("#overlay"),
       inferenceCanvas: $("#inferenceCanvas"),
       recordingCanvas: $("#recordingCanvas"),
+      recordingOverlayCanvas: $("#recordingOverlayCanvas"),
 
       introScreen: $("#introScreen"),
       experienceScreen: $("#experienceScreen"),
@@ -988,6 +996,12 @@
       desynchronized: true
     });
 
+    const recordingOverlayContext =
+      elements.recordingOverlayCanvas.getContext("2d", {
+        alpha: true,
+        desynchronized: true
+      });
+
     const state = {
       landmarker: null,
       stream: null,
@@ -1007,18 +1021,22 @@
       recordingStream: null,
       recordingChunks: [],
       recordingFrameId: null,
+      recordingFrameMode: "",
+      recordingTimerId: null,
       recordingBlob: null,
       recordingUrl: null,
       recordingMimeType: "",
       recordingStartedAt: 0,
+      lastRecordingDrawAt: 0,
       finalizeRecordingPromise: null,
+      recordingAudioContext: null,
+      recordingAudioSource: null,
+      recordingAudioGain: null,
+      recordingAudioLimiter: null,
+      recordingAudioDestination: null,
       geometrySignature: "",
       geometryWarmupFrames: 0,
-      latestHandResults: [],
-      microphoneAudioContext: null,
-      microphoneSource: null,
-      microphoneGainNode: null,
-      microphoneDestination: null
+      latestHandResults: []
     };
 
     let wakeLock = null;
@@ -1101,61 +1119,140 @@
 
       const makeEven = (value) => Math.max(2, Math.round(value / 2) * 2);
 
-      elements.recordingCanvas.width = makeEven(width * scale);
-      elements.recordingCanvas.height = makeEven(height * scale);
+      const canvasWidth = makeEven(width * scale);
+      const canvasHeight = makeEven(height * scale);
+
+      elements.recordingCanvas.width = canvasWidth;
+      elements.recordingCanvas.height = canvasHeight;
+      elements.recordingOverlayCanvas.width = canvasWidth;
+      elements.recordingOverlayCanvas.height = canvasHeight;
+
+      refreshRecordingOverlay();
       return true;
     }
 
-    function drawRecordingFrame() {
+    function cancelRecordingFrameLoop() {
+      if (
+        state.recordingFrameMode === "video" &&
+        state.recordingFrameId !== null &&
+        typeof elements.camera.cancelVideoFrameCallback === "function"
+      ) {
+        elements.camera.cancelVideoFrameCallback(
+          state.recordingFrameId
+        );
+      } else if (
+        state.recordingFrameMode === "raf" &&
+        state.recordingFrameId !== null
+      ) {
+        cancelAnimationFrame(state.recordingFrameId);
+      }
+
+      if (state.recordingTimerId !== null) {
+        clearTimeout(state.recordingTimerId);
+      }
+
+      state.recordingFrameId = null;
+      state.recordingTimerId = null;
+      state.recordingFrameMode = "";
+      state.lastRecordingDrawAt = 0;
+    }
+
+    function scheduleNextRecordingFrame() {
       const recorder = state.mediaRecorder;
 
       if (!recorder || recorder.state !== "recording") {
-        state.recordingFrameId = null;
+        cancelRecordingFrameLoop();
         return;
       }
 
-      state.recordingFrameId = requestAnimationFrame(drawRecordingFrame);
+      if (
+        typeof elements.camera.requestVideoFrameCallback === "function"
+      ) {
+        state.recordingFrameMode = "video";
+        state.recordingFrameId =
+          elements.camera.requestVideoFrameCallback(
+            drawRecordingFrame
+          );
+        return;
+      }
+
+      // 구형 Safari에서는 rAF를 30fps 타이머로 제한합니다.
+      state.recordingFrameMode = "raf";
+      state.recordingTimerId = setTimeout(() => {
+        state.recordingTimerId = null;
+        state.recordingFrameId = requestAnimationFrame(
+          drawRecordingFrame
+        );
+      }, 1000 / CONFIG.recordingFps);
+    }
+
+    function drawRecordingFrame(timestamp = performance.now()) {
+      const recorder = state.mediaRecorder;
+
+      if (!recorder || recorder.state !== "recording") {
+        cancelRecordingFrameLoop();
+        return;
+      }
+
+      const frameInterval = 1000 / CONFIG.recordingFps;
+
+      // 60fps 카메라가 들어와도 녹화 합성은 최대 30fps로 제한합니다.
+      if (
+        state.lastRecordingDrawAt &&
+        timestamp - state.lastRecordingDrawAt < frameInterval - 1
+      ) {
+        scheduleNextRecordingFrame();
+        return;
+      }
+
+      state.lastRecordingDrawAt = timestamp;
 
       const targetWidth = elements.recordingCanvas.width;
       const targetHeight = elements.recordingCanvas.height;
       const videoWidth = elements.camera.videoWidth;
       const videoHeight = elements.camera.videoHeight;
 
-      if (!targetWidth || !targetHeight || !videoWidth || !videoHeight) {
-        return;
+      if (targetWidth && targetHeight && videoWidth && videoHeight) {
+        const scale = Math.max(
+          targetWidth / videoWidth,
+          targetHeight / videoHeight
+        );
+        const drawWidth = videoWidth * scale;
+        const drawHeight = videoHeight * scale;
+        const drawX = (targetWidth - drawWidth) / 2;
+        const drawY = (targetHeight - drawHeight) / 2;
+
+        recordingContext.save();
+        recordingContext.fillStyle = "#000";
+        recordingContext.fillRect(
+          0,
+          0,
+          targetWidth,
+          targetHeight
+        );
+
+        // 화면에 보이는 셀피 카메라와 동일하게 좌우 반전합니다.
+        recordingContext.translate(targetWidth, 0);
+        recordingContext.scale(-1, 1);
+        recordingContext.drawImage(
+          elements.camera,
+          drawX,
+          drawY,
+          drawWidth,
+          drawHeight
+        );
+        recordingContext.restore();
+
+        // 관절·글씨는 추론 결과가 바뀔 때만 별도 캔버스에
+        // 다시 그린 뒤 여기서는 한 장의 이미지로 합성합니다.
+        recordingContext.drawImage(
+          elements.recordingOverlayCanvas,
+          0,
+          0
+        );
       }
 
-      const scale = Math.max(
-        targetWidth / videoWidth,
-        targetHeight / videoHeight
-      );
-      const drawWidth = videoWidth * scale;
-      const drawHeight = videoHeight * scale;
-      const drawX = (targetWidth - drawWidth) / 2;
-      const drawY = (targetHeight - drawHeight) / 2;
-
-      recordingContext.save();
-      recordingContext.fillStyle = "#000";
-      recordingContext.fillRect(0, 0, targetWidth, targetHeight);
-
-      // 화면에 보이는 셀피 카메라와 동일하게 좌우 반전합니다.
-      recordingContext.translate(targetWidth, 0);
-      recordingContext.scale(-1, 1);
-      recordingContext.filter = "brightness(0.88) contrast(1.04) saturate(0.96)";
-      recordingContext.drawImage(
-        elements.camera,
-        drawX,
-        drawY,
-        drawWidth,
-        drawHeight
-      );
-      recordingContext.filter = "none";
-      recordingContext.restore();
-
-      // 화면용 오버레이 캔버스를 확대 복사하지 않고, 녹화 해상도와
-      // 카메라 object-fit: cover 크롭을 기준으로 관절을 다시 그립니다.
-      // 이 방식으로 저장된 영상에서 관절이 손보다 위·아래로 밀리는 현상을 방지합니다.
-      drawRecordingHandResults(targetWidth, targetHeight);
+      scheduleNextRecordingFrame();
     }
 
     function clearPreviousRecording() {
@@ -1170,7 +1267,7 @@
       elements.saveRecordingButton.textContent = "영상 저장하기";
     }
 
-    async function getAmplifiedMicrophoneTrack() {
+    async function createBoostedRecordingAudioTrack() {
       const microphoneTrack = state.stream?.getAudioTracks?.()[0];
 
       if (!microphoneTrack) {
@@ -1184,62 +1281,79 @@
         return microphoneTrack.clone();
       }
 
-      if (!state.microphoneAudioContext) {
-        state.microphoneAudioContext = new AudioContextClass();
+      try {
+        const context = new AudioContextClass({
+          latencyHint: "interactive"
+        });
 
-        const microphoneStream = new MediaStream([microphoneTrack]);
-        state.microphoneSource =
-          state.microphoneAudioContext.createMediaStreamSource(
-            microphoneStream
-          );
+        if (context.state === "suspended") {
+          await context.resume();
+        }
 
-        state.microphoneGainNode =
-          state.microphoneAudioContext.createGain();
-        state.microphoneGainNode.gain.value =
-          CONFIG.microphoneGain;
+        const microphoneStream =
+          new MediaStream([microphoneTrack]);
+        const source =
+          context.createMediaStreamSource(microphoneStream);
+        const gain = context.createGain();
+        const limiter = context.createDynamicsCompressor();
+        const destination =
+          context.createMediaStreamDestination();
 
-        state.microphoneDestination =
-          state.microphoneAudioContext.createMediaStreamDestination();
+        // 녹화본의 마이크 신호만 키웁니다. Safari TTS의 실제
+        // 스피커 출력은 브라우저 최대값(utterance.volume = 1)을 사용합니다.
+        gain.gain.value = CONFIG.recordingMicGain;
+        limiter.threshold.value = -7;
+        limiter.knee.value = 4;
+        limiter.ratio.value = 14;
+        limiter.attack.value = 0.002;
+        limiter.release.value = 0.18;
 
-        state.microphoneSource.connect(
-          state.microphoneGainNode
+        source.connect(gain);
+        gain.connect(limiter);
+        limiter.connect(destination);
+
+        state.recordingAudioContext = context;
+        state.recordingAudioSource = source;
+        state.recordingAudioGain = gain;
+        state.recordingAudioLimiter = limiter;
+        state.recordingAudioDestination = destination;
+
+        const track = destination.stream.getAudioTracks()[0];
+        if (track) {
+          track.contentHint = "speech";
+        }
+        return track || microphoneTrack.clone();
+      } catch (error) {
+        console.warn(
+          "마이크 증폭 경로를 만들지 못해 원본 오디오를 사용합니다.",
+          error
         );
-        state.microphoneGainNode.connect(
-          state.microphoneDestination
-        );
+        return microphoneTrack.clone();
       }
-
-      if (state.microphoneAudioContext.state === "suspended") {
-        await state.microphoneAudioContext.resume();
-      }
-
-      const amplifiedTrack =
-        state.microphoneDestination?.stream
-          .getAudioTracks?.()[0];
-
-      return amplifiedTrack?.clone() ?? microphoneTrack.clone();
     }
 
-    async function closeMicrophoneMixer() {
+    async function closeRecordingAudioGraph() {
       try {
-        state.microphoneSource?.disconnect();
-        state.microphoneGainNode?.disconnect();
+        state.recordingAudioSource?.disconnect();
+        state.recordingAudioGain?.disconnect();
+        state.recordingAudioLimiter?.disconnect();
       } catch (error) {
         console.warn(error);
       }
 
-      if (state.microphoneAudioContext) {
+      if (state.recordingAudioContext) {
         try {
-          await state.microphoneAudioContext.close();
+          await state.recordingAudioContext.close();
         } catch (error) {
           console.warn(error);
         }
       }
 
-      state.microphoneAudioContext = null;
-      state.microphoneSource = null;
-      state.microphoneGainNode = null;
-      state.microphoneDestination = null;
+      state.recordingAudioContext = null;
+      state.recordingAudioSource = null;
+      state.recordingAudioGain = null;
+      state.recordingAudioLimiter = null;
+      state.recordingAudioDestination = null;
     }
 
     async function startRecording() {
@@ -1262,23 +1376,35 @@
       }
 
       const mimeType = getSupportedRecordingMimeType();
-      const stream = elements.recordingCanvas.captureStream(CONFIG.recordingFps);
-      // 브라우저 기본 TTS는 스피커로 재생하고, 마이크로 들어온 소리를
-      // Web Audio GainNode로 증폭해 녹화 영상에 합칩니다.
-      const microphoneTrack = await getAmplifiedMicrophoneTrack();
-      if (microphoneTrack) {
-        stream.addTrack(microphoneTrack);
+      const stream =
+        elements.recordingCanvas.captureStream(
+          CONFIG.recordingFps
+        );
+      const videoTrack = stream.getVideoTracks()[0];
+      if (videoTrack) {
+        videoTrack.contentHint = "motion";
+      }
+
+      await closeRecordingAudioGraph();
+      const recordingAudioTrack =
+        await createBoostedRecordingAudioTrack();
+      if (recordingAudioTrack) {
+        stream.addTrack(recordingAudioTrack);
       }
 
       const options = mimeType
         ? {
             mimeType,
-            videoBitsPerSecond: 6_000_000,
-            audioBitsPerSecond: 128_000
+            videoBitsPerSecond:
+              CONFIG.recordingVideoBitsPerSecond,
+            audioBitsPerSecond:
+              CONFIG.recordingAudioBitsPerSecond
           }
         : {
-            videoBitsPerSecond: 6_000_000,
-            audioBitsPerSecond: 128_000
+            videoBitsPerSecond:
+              CONFIG.recordingVideoBitsPerSecond,
+            audioBitsPerSecond:
+              CONFIG.recordingAudioBitsPerSecond
           };
 
       let recorder;
@@ -1288,6 +1414,7 @@
       } catch (error) {
         console.error(error);
         stream.getTracks().forEach((track) => track.stop());
+        await closeRecordingAudioGraph();
         elements.recordButton.textContent = "녹화 시작 실패";
         showToast("이 기기에서 녹화를 시작할 수 없습니다.", 4200);
         return;
@@ -1321,10 +1448,8 @@
         state.mediaRecorder = null;
         state.recordingChunks = [];
 
-        if (state.recordingFrameId) {
-          cancelAnimationFrame(state.recordingFrameId);
-          state.recordingFrameId = null;
-        }
+        cancelRecordingFrameLoop();
+        closeRecordingAudioGraph();
 
         elements.recordButton.classList.remove("recording");
         elements.recordButton.disabled = false;
@@ -1337,7 +1462,9 @@
         elements.saveRecordingButton.textContent = "영상 저장하기";
       }, { once: true });
 
-      recorder.start(800);
+      recorder.start(1000);
+      state.lastRecordingDrawAt = 0;
+      refreshRecordingOverlay();
       elements.recordButton.disabled = false;
       elements.recordButton.classList.add("recording");
       elements.recordButton.textContent = "녹화 종료 · 저장";
@@ -1570,15 +1697,14 @@
         throw new Error("이 브라우저에서는 카메라를 사용할 수 없습니다.");
       }
 
-      const screenRatio = window.innerHeight / window.innerWidth;
-
       state.stream = await navigator.mediaDevices.getUserMedia({
+        // Safari에서 TTS 스피커 소리가 과도하게 줄거나 제거되지 않도록
+        // 음성 통화용 처리를 가능한 한 비활성화합니다.
         audio: {
-          channelCount: { ideal: 1 },
-          sampleRate: { ideal: 48000 },
-          echoCancellation: false,
-          noiseSuppression: false,
-          autoGainControl: false
+          echoCancellation: { ideal: false },
+          noiseSuppression: { ideal: false },
+          autoGainControl: { ideal: false },
+          channelCount: { ideal: 1 }
         },
         video: {
           facingMode: { ideal: "user" },
@@ -1592,9 +1718,37 @@
         }
       });
 
+      const microphoneTrack = state.stream.getAudioTracks()[0];
+      if (microphoneTrack) {
+        microphoneTrack.contentHint = "speech";
+
+        try {
+          await microphoneTrack.applyConstraints({
+            echoCancellation: false,
+            noiseSuppression: false,
+            autoGainControl: false
+          });
+        } catch (audioConstraintError) {
+          // Safari 버전에 따라 일부 오디오 제약을 지원하지 않습니다.
+          console.warn(
+            "오디오 후처리 비활성화 제약을 일부 적용하지 못했습니다.",
+            audioConstraintError
+          );
+        }
+      }
+
       try {
         const videoTrack = state.stream.getVideoTracks()[0];
         const capabilities = videoTrack.getCapabilities();
+
+        // 지원하는 기기에서는 카메라 입력 자체도 30fps로 고정합니다.
+        try {
+          await videoTrack.applyConstraints({
+            frameRate: { ideal: CONFIG.recordingFps, max: CONFIG.recordingFps }
+          });
+        } catch (frameRateError) {
+          console.warn("30fps 카메라 제약을 적용하지 못했습니다.", frameRateError);
+        }
         
         const constraints = { advanced: [] };
         let hasConstraints = false;
@@ -1852,17 +2006,16 @@
 
       const utterance = new SpeechSynthesisUtterance(ttsWord);
       utterance.lang = lang;
-      // SpeechSynthesisUtterance의 허용 최대 볼륨은 1입니다.
-      // 실제 녹화 음량은 CONFIG.microphoneGain으로 추가 증폭합니다.
+      // Safari 시스템 음성을 허용 최대 볼륨으로 재생합니다.
+      // 별도 오디오 파일이나 Web Audio 우회 경로를 사용하지 않습니다.
       utterance.volume = CONFIG.ttsVolume;
       utterance.rate = 1;
       utterance.pitch = 1;
-      window.speechSynthesis.cancel();
       window.speechSynthesis.resume();
       window.speechSynthesis.speak(utterance);
 
       playFlash();
-      spawnParticles(24);
+      spawnParticles(12);
 
       if (navigator.vibrate) {
         navigator.vibrate(32);
@@ -1921,6 +2074,7 @@
       state.latestHandResults = [];
 
       if (!landmarksList.length) {
+        refreshRecordingOverlay();
         return;
       }
 
@@ -1966,6 +2120,8 @@
           nearest
         );
       });
+
+      refreshRecordingOverlay();
     }
 
     function drawHandSkeleton(
@@ -2173,6 +2329,24 @@
       overlayContext.restore();
     }
 
+    function refreshRecordingOverlay() {
+      const targetWidth = elements.recordingOverlayCanvas.width;
+      const targetHeight = elements.recordingOverlayCanvas.height;
+
+      if (!targetWidth || !targetHeight) {
+        return;
+      }
+
+      recordingOverlayContext.clearRect(
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
+
+      drawRecordingHandResults(targetWidth, targetHeight);
+    }
+
     function getRecordingDisplayMetrics(targetWidth, targetHeight) {
       const videoWidth = elements.camera.videoWidth;
       const videoHeight = elements.camera.videoHeight;
@@ -2242,11 +2416,11 @@
         targetWidth / Math.max(state.overlayWidth, 1)
       );
 
-      recordingContext.save();
-      recordingContext.lineCap = "round";
-      recordingContext.lineJoin = "round";
-      recordingContext.lineWidth = 1.4 * widthScale;
-      recordingContext.strokeStyle =
+      recordingOverlayContext.save();
+      recordingOverlayContext.lineCap = "round";
+      recordingOverlayContext.lineJoin = "round";
+      recordingOverlayContext.lineWidth = 1.4 * widthScale;
+      recordingOverlayContext.strokeStyle =
         "rgba(101, 233, 255, 0.34)";
 
       HAND_CONNECTIONS.forEach(([startIndex, endIndex]) => {
@@ -2259,10 +2433,10 @@
           metrics
         );
 
-        recordingContext.beginPath();
-        recordingContext.moveTo(start.x, start.y);
-        recordingContext.lineTo(end.x, end.y);
-        recordingContext.stroke();
+        recordingOverlayContext.beginPath();
+        recordingOverlayContext.moveTo(start.x, start.y);
+        recordingOverlayContext.lineTo(end.x, end.y);
+        recordingOverlayContext.stroke();
       });
 
       landmarks.forEach((landmark, index) => {
@@ -2271,19 +2445,19 @@
           metrics
         );
 
-        recordingContext.beginPath();
-        recordingContext.arc(
+        recordingOverlayContext.beginPath();
+        recordingOverlayContext.arc(
           point.x,
           point.y,
           (index === 4 ? 3.6 : 2.1) * widthScale,
           0,
           Math.PI * 2
         );
-        recordingContext.fillStyle =
+        recordingOverlayContext.fillStyle =
           index === 4
             ? "rgba(255, 255, 255, 0.92)"
             : "rgba(101, 233, 255, 0.54)";
-        recordingContext.fill();
+        recordingOverlayContext.fill();
       });
 
       if (nearest) {
@@ -2303,17 +2477,17 @@
           )
         );
 
-        recordingContext.beginPath();
-        recordingContext.moveTo(thumb.x, thumb.y);
-        recordingContext.lineTo(finger.x, finger.y);
-        recordingContext.lineWidth =
+        recordingOverlayContext.beginPath();
+        recordingOverlayContext.moveTo(thumb.x, thumb.y);
+        recordingOverlayContext.lineTo(finger.x, finger.y);
+        recordingOverlayContext.lineWidth =
           (2 + proximity * 2) * widthScale;
-        recordingContext.strokeStyle =
+        recordingOverlayContext.strokeStyle =
           `rgba(255, 255, 255, ${0.12 + proximity * 0.65})`;
-        recordingContext.stroke();
+        recordingOverlayContext.stroke();
       }
 
-      recordingContext.restore();
+      recordingOverlayContext.restore();
     }
 
     function drawRecordingFingerAssignments(
@@ -2343,69 +2517,69 @@
         const isClose =
           isNearest && nearest.ratio <= CONFIG.pinchOffRatio;
 
-        recordingContext.save();
+        recordingOverlayContext.save();
 
         if (isClose) {
-          recordingContext.beginPath();
-          recordingContext.arc(
+          recordingOverlayContext.beginPath();
+          recordingOverlayContext.arc(
             point.x,
             point.y,
             11 * widthScale,
             0,
             Math.PI * 2
           );
-          recordingContext.fillStyle = assignment.color + "30";
-          recordingContext.fill();
+          recordingOverlayContext.fillStyle = assignment.color + "30";
+          recordingOverlayContext.fill();
         }
 
-        recordingContext.beginPath();
-        recordingContext.arc(
+        recordingOverlayContext.beginPath();
+        recordingOverlayContext.arc(
           point.x,
           point.y,
           (isClose ? 5.8 : 4.4) * widthScale,
           0,
           Math.PI * 2
         );
-        recordingContext.fillStyle = "#ff314f";
-        recordingContext.shadowColor = assignment.color;
-        recordingContext.shadowBlur =
+        recordingOverlayContext.fillStyle = "#ff314f";
+        recordingOverlayContext.shadowColor = assignment.color;
+        recordingOverlayContext.shadowBlur =
           (isClose ? 18 : 9) * widthScale;
-        recordingContext.fill();
-        recordingContext.restore();
+        recordingOverlayContext.fill();
+        recordingOverlayContext.restore();
 
-        recordingContext.save();
+        recordingOverlayContext.save();
         const fontSize = Math.max(
           13 * widthScale,
           Math.min(19 * widthScale, targetWidth * 0.044)
         );
-        recordingContext.font =
+        recordingOverlayContext.font =
           `italic 700 ${fontSize}px Georgia, ` +
           `"Times New Roman", serif`;
-        recordingContext.textAlign = "center";
-        recordingContext.textBaseline = "bottom";
-        recordingContext.fillStyle = assignment.color;
-        recordingContext.shadowColor =
+        recordingOverlayContext.textAlign = "center";
+        recordingOverlayContext.textBaseline = "bottom";
+        recordingOverlayContext.fillStyle = assignment.color;
+        recordingOverlayContext.shadowColor =
           "rgba(0, 0, 0, 0.82)";
-        recordingContext.shadowBlur = 8 * widthScale;
-        recordingContext.lineWidth =
+        recordingOverlayContext.shadowBlur = 8 * widthScale;
+        recordingOverlayContext.lineWidth =
           (isClose ? 4 : 3) * widthScale;
-        recordingContext.strokeStyle =
+        recordingOverlayContext.strokeStyle =
           "rgba(4, 4, 8, 0.72)";
 
         const y =
           point.y - (isClose ? 14 : 11) * widthScale;
 
-        recordingContext.strokeText(
+        recordingOverlayContext.strokeText(
           assignment.word,
           point.x,
           y
         );
-        recordingContext.fillText(
+        recordingOverlayContext.fillText(
           assignment.word,
           point.x,
           y
         );
-        recordingContext.restore();
+        recordingOverlayContext.restore();
       });
     }
 
@@ -2472,7 +2646,6 @@
 
         resetSelection();
         showScreen("experience");
-        await waitForStableCameraGeometry();
 
         state.running = true;
 
@@ -2500,6 +2673,7 @@
       state.completing = false;
       state.detectedHands = 0;
       state.latestHandResults = [];
+      refreshRecordingOverlay();
 
       clearTimeout(state.selectedWordTimer);
       clearTimeout(state.completeTimer);
@@ -2535,7 +2709,7 @@
       state.running = false;
       clearOverlay();
       showScreen("complete");
-      spawnParticles(78);
+      spawnParticles(48);
       playFlash();
       await stopRecording();
     }
@@ -2616,12 +2790,16 @@
       elements.app.classList.remove("camera-mode");
       elements.recordControls.classList.add("hidden");
 
+      cancelRecordingFrameLoop();
+
       if (state.mediaRecorder?.state === "recording") {
         try {
           state.mediaRecorder.stop();
         } catch (error) {
           console.warn(error);
         }
+      } else {
+        closeRecordingAudioGraph();
       }
 
       if (!state.stream) {
@@ -2635,7 +2813,6 @@
       state.stream = null;
       elements.camera.srcObject = null;
       elements.cameraLayer.classList.remove("active");
-      closeMicrophoneMixer();
     }
 
     elements.startButton.addEventListener(
