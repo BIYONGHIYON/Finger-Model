@@ -1053,24 +1053,36 @@
         throw new Error("이 브라우저에서는 카메라를 사용할 수 없습니다.");
       }
 
+      // 기기의 현재 화면 비율을 계산하여 카메라 크롭(확대) 현상을 최소화합니다.
+      const screenRatio = window.innerHeight / window.innerWidth;
+
       state.stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: "user" },
-          width: { ideal: 720 },
-          height: { ideal: 1280 },
+          // 기기의 카메라 센서를 최대로 활용(가장 넓은 화각)하도록 유도합니다.
+          aspectRatio: { ideal: screenRatio },
+          width: { ideal: 2160 },
+          height: { ideal: 2160 },
           frameRate: { ideal: 24, max: 30 }
         }
       });
 
-      // 카메라 줌 아웃 (하드웨어가 지원하는 경우 축소율 최대로 설정)
+      // 카메라 하드웨어 줌을 최소치(광각)로 명시적 설정
       try {
         const videoTrack = state.stream.getVideoTracks()[0];
         const capabilities = videoTrack.getCapabilities();
+        
+        const constraints = { advanced: [] };
+        let hasConstraints = false;
+
         if (capabilities.zoom) {
-          await videoTrack.applyConstraints({
-            advanced: [{ zoom: capabilities.zoom.min }]
-          });
+          constraints.advanced.push({ zoom: capabilities.zoom.min });
+          hasConstraints = true;
+        }
+
+        if (hasConstraints) {
+          await videoTrack.applyConstraints(constraints);
         }
       } catch (e) {
         console.warn("Zoom constraint ignored:", e);
