@@ -826,14 +826,14 @@
 
       assignments: {
         Left: [
-          { tip: 16, word: "i", color: "#ff4e67" },
-          { tip: 12, word: "love", color: "#8df58b" },
+          { tip: 16, word: "much", color: "#ff4e67" },
+          { tip: 12, word: "so", color: "#8df58b" },
           { tip: 8, word: "hoonkyu", color: "#7f82ff" }
         ],
         Right: [
           { tip: 16, word: "", color: "#ff77a9" },
-          { tip: 12, word: "much", color: "#ff5f9e" },
-          { tip: 8, word: "so", color: "#65e9ff" }
+          { tip: 12, word: "i", color: "#ff5f9e" },
+          { tip: 8, word: "love", color: "#65e9ff" }
         ]
       },
 
@@ -1280,7 +1280,8 @@
       updateProgress();
       showSelectedWord(word);
 
-      const utterance = new SpeechSynthesisUtterance(word);
+      const ttsWord = word === "hoonkyu" ? "Hun-gyu" : word;
+      const utterance = new SpeechSynthesisUtterance(ttsWord);
       utterance.lang = "en-US";
       window.speechSynthesis.speak(utterance);
 
