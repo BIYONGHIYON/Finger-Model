@@ -1,3 +1,8 @@
+<!--
+=======================================
+문구수정 : 하단 645줄 영역
+=======================================
+-->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -169,61 +174,6 @@
       to { transform: translate(-15vw, -9vh) scale(0.86); }
     }
 
-    .topbar {
-      position: absolute;
-      top: 0;
-      left: 0;
-      right: 0;
-      z-index: 20;
-      display: flex;
-      align-items: center;
-      justify-content: space-between;
-      padding: calc(var(--safe-top) + 3px) 18px 12px;
-    }
-
-    .brand {
-      display: flex;
-      align-items: center;
-      gap: 9px;
-      font-size: 11px;
-      font-weight: 750;
-      letter-spacing: 0.17em;
-      text-transform: uppercase;
-      text-shadow: 0 1px 16px rgba(0, 0, 0, 0.45);
-    }
-
-    .brand-dot {
-      width: 9px;
-      height: 9px;
-      border-radius: 50%;
-      background: linear-gradient(135deg, var(--pink), var(--cyan));
-      box-shadow:
-        0 0 0 5px rgba(255, 255, 255, 0.06),
-        0 0 22px rgba(255, 95, 158, 0.72);
-    }
-
-    .reset-button {
-      min-width: 66px;
-      height: 38px;
-      padding: 0 13px;
-      border: 1px solid var(--glass-border);
-      border-radius: 999px;
-      background: rgba(6, 6, 10, 0.34);
-      font-size: 12px;
-      font-weight: 680;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-      cursor: pointer;
-    }
-
-    .reset-button:active {
-      transform: scale(0.95);
-    }
-
-    .reset-button[hidden] {
-      display: none;
-    }
-
     .screen {
       position: absolute;
       inset: 0;
@@ -249,13 +199,6 @@
         calc(var(--safe-top) + 70px)
         22px
         calc(var(--safe-bottom) + 25px);
-    }
-
-    .intro-decoration {
-      position: absolute;
-      inset: 0;
-      overflow: hidden;
-      pointer-events: none;
     }
 
     .eyebrow {
@@ -646,32 +589,16 @@
     <div class="orb one"></div>
     <div class="orb two"></div>
 
-    <header class="topbar">
-      <div class="brand">
-        <span class="brand-dot"></span>
-        <span>MENT 1</span>
-      </div>
-
-      <button class="reset-button" id="resetButton" hidden>
-        초기화
-      </button>
-    </header>
-
     <section class="screen intro" id="introScreen">
-      <div class="intro-decoration" aria-hidden="true">
-      </div>
-
-      <h1>
-        원하는
-        <em>멘트 작성</em>
+      <h1 id="ui-intro-title">
+        <span id="ui-intro-main"></span>
+        <em id="ui-intro-sub"></em>
       </h1>
 
-      <p class="intro-copy">
-        멘트 작성
-      </p>
+      <p class="intro-copy" id="ui-intro-copy"></p>
 
       <button class="primary-button" id="startButton">
-        <span>카메라 시작하기</span>
+        <span id="ui-start-btn"></span>
       </button>
     </section>
 
@@ -698,20 +625,12 @@
 
     <section class="screen complete hidden" id="completeScreen">
       <div class="complete-copy">
-        <div class="eyebrow">MENT 4</div>
-
-        <h2>
-          i love<br />
-          hoonkyu<br />
-          so much
-        </h2>
-
-        <p>
-          멘트 5. 다섯 개의 손짓으로 완성된 마지막 메시지가 들어가는 영역입니다.
-        </p>
+        <div class="eyebrow" id="ui-complete-eyebrow"></div>
+        <h2 id="ui-complete-title"></h2>
+        <p id="ui-complete-copy"></p>
 
         <button class="primary-button" id="restartButton">
-          <span>다시 시작하기</span>
+          <span id="ui-restart-btn"></span>
         </button>
       </div>
     </section>
@@ -722,6 +641,18 @@
   </main>
 
   <script type="module">
+    const TEXT_CONFIG = {
+      introMain: "원하는",//시작화면 흰색 제목
+      introSub: "멘트 작성1",//시작화면 이탤릭 제목
+      introCopy: "멘트 작성2",//시작화면 하단 작은 글씨
+      startBtn: "카메라 시작하기",//시작버튼
+      completeEyebrow: "멘트 작성3",//결과화면 제목 위 작은 글씨
+      completeTitle: "i love<br />hoonkyu<br />so much",//결과화면 제목-br은 줄바꿈임
+      completeCopy: "멘트 작성4",//결과화면 제목 아래 작은 글씨
+      restartBtn: "다시 시작하기",
+      loadingText: "카메라와 모델 준비 중..."
+    };
+
     import {
       FilesetResolver,
       HandLandmarker
@@ -787,7 +718,6 @@
       completeScreen: $("#completeScreen"),
 
       startButton: $("#startButton"),
-      resetButton: $("#resetButton"),
       restartButton: $("#restartButton"),
 
       selectedWord: $("#selectedWord"),
@@ -797,6 +727,15 @@
       flash: $("#flash"),
       toast: $("#toast")
     };
+
+    $("#ui-intro-main").innerHTML = TEXT_CONFIG.introMain;
+    $("#ui-intro-sub").innerHTML = TEXT_CONFIG.introSub;
+    $("#ui-intro-copy").innerHTML = TEXT_CONFIG.introCopy;
+    $("#ui-start-btn").innerHTML = TEXT_CONFIG.startBtn;
+    $("#ui-complete-eyebrow").innerHTML = TEXT_CONFIG.completeEyebrow;
+    $("#ui-complete-title").innerHTML = TEXT_CONFIG.completeTitle;
+    $("#ui-complete-copy").innerHTML = TEXT_CONFIG.completeCopy;
+    $("#ui-restart-btn").innerHTML = TEXT_CONFIG.restartBtn;
 
     const overlayContext = elements.overlay.getContext("2d");
     const inferenceContext = elements.inferenceCanvas.getContext("2d", {
@@ -1533,8 +1472,7 @@
 
     async function startExperience() {
       elements.startButton.disabled = true;
-      elements.startButton.querySelector("span").textContent =
-        "카메라와 모델 준비 중...";
+      elements.startButton.querySelector("span").textContent = TEXT_CONFIG.loadingText;
 
       try {
         await Promise.all([
@@ -1547,7 +1485,6 @@
         resetSelection();
         showScreen("experience");
 
-        elements.resetButton.hidden = false;
         state.running = true;
 
         requestAnimationFrame(inferenceLoop);
@@ -1563,8 +1500,7 @@
         showToast(message, 4800);
       } finally {
         elements.startButton.disabled = false;
-        elements.startButton.querySelector("span").textContent =
-          "카메라 시작하기";
+        elements.startButton.querySelector("span").textContent = TEXT_CONFIG.startBtn;
       }
     }
 
@@ -1698,11 +1634,6 @@
     elements.startButton.addEventListener(
       "click",
       startExperience
-    );
-
-    elements.resetButton.addEventListener(
-      "click",
-      resetWhileRunning
     );
 
     elements.restartButton.addEventListener(
