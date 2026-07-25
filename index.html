@@ -1,7 +1,7 @@
 <!--
 =========================================================
 1. 문구 수정
-    - 스크립트 영역의 TEXT_CONFIG 내부 (line 864)
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 874)
 
 2. 결과 화면 켜기/끄기
     - 시작 화면의 "결과 화면" 스위치에서 선택
@@ -12,27 +12,20 @@
     - 카메라 시작과 동시에 30fps 자동 녹화
     - 녹화본에는 카메라 영상 + 손 관절 + 손가락 글씨만 포함
     - 화면의 버튼, 결과 패널, 효과 등 UI는 녹화되지 않음
-    - 마이크와 tts 폴더의 MP3를 Web Audio에서 직접 합성해 녹음
-    - TTS는 스피커 재생과 녹화에 동일한 볼륨 신호로 전달
+    - 마이크 소리와 기기 스피커에서 재생되는 TTS도 함께 녹음
     - 촬영 화면의 "녹화 종료 · 저장" 버튼으로 저장
-    - 첫 실행 시 카메라 좌표계를 재동기화해 손 관절의 세로 위치 오차 방지
 
-4. TTS 볼륨 수정
-    - 스크립트의 CONFIG.ttsVolume 값을 변경
-    - 현재 1.55이며, 스피커 재생과 녹화본 모두 같은 값이 적용됨
-
-
-5. 폰트 수정
+4. 폰트 수정
     - 코드에서 Ctrl+F 키를 눌러 'font-family'를 검색
     - 일반 텍스트 폰트 : 상단 스타일 영역의 body { font-family: ... } 부분 수정
     - 영어/강조 폰트 (단어 칩, 선택된 단어 등) : .selected-word, .word-chip 영역의 font-family 수정
 
 
-6. 메인 컬러(테마 색상) 수정
+5. 메인 컬러(테마 색상) 수정
     - 상단 스타일 영역 맨 위쪽(line 50)의 :root { ... } 블록
     - --pink, --purple, --cyan 뒤에 있는 색상 코드(예: #ff5f9e)를 변경
 
-7. 웹사이트에 반영
+6. 웹사이트에 반영
     - 수정 후 저장, GitHub에 commit & push, 약 2분내로 반영됨
 =========================================================
 -->
@@ -886,7 +879,7 @@
       completeTitle: "i love<br />hooonkyu<br />so much",//결과화면 제목-br은 줄바꿈임
       completeCopy: "멘트 작성4",//결과화면 제목 아래 작은 글씨
       restartBtn: "다시 시작하기",
-      loadingText: "카메라, 모델과 TTS 준비 중..."
+      loadingText: "카메라와 모델 준비 중..."
     };
 
     import {
@@ -900,18 +893,8 @@
       endlessMode: true,
       recordingFps: 30,
       recordingLongSide: 1280,
-
-      // 1.0이 기본 음량입니다. 같은 노드를 스피커와 녹화에 분기하므로
-      // 두 경로에 동일한 TTS 볼륨이 적용됩니다.
-      ttsVolume: 1.55,
-      ttsFiles: {
-        i: "./tts/i.mp3",
-        love: "./tts/love.mp3",
-        hooonkyu: "./tts/hooonkyu.mp3",
-        so: "./tts/so.mp3",
-        much: "./tts/much.mp3"
-      },
-
+      microphoneGain: 1.8,
+      ttsVolume: 1,
       modelUrl:
         "https://storage.googleapis.com/mediapipe-models/" +
         "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
@@ -1031,17 +1014,11 @@
       finalizeRecordingPromise: null,
       geometrySignature: "",
       geometryWarmupFrames: 0,
-
-      audioContext: null,
-      audioRecordingDestination: null,
-      ttsGainNode: null,
-      ttsLimiterNode: null,
-      microphoneSourceNode: null,
+      latestHandResults: [],
+      microphoneAudioContext: null,
+      microphoneSource: null,
       microphoneGainNode: null,
-      microphoneTrackId: "",
-      ttsBuffers: new Map(),
-      ttsLoadingPromise: null,
-      activeTtsSources: new Set()
+      microphoneDestination: null
     };
 
     let wakeLock = null;
@@ -1086,162 +1063,6 @@
     function syncResultMode() {
       CONFIG.endlessMode = !elements.resultToggle.checked;
       $(".bottom-panel").style.display = CONFIG.endlessMode ? "none" : "block";
-    }
-
-
-    async function ensureAudioMixer() {
-      const AudioContextClass =
-        window.AudioContext || window.webkitAudioContext;
-
-      if (!AudioContextClass) {
-        throw new Error("이 브라우저에서는 오디오 합성을 지원하지 않습니다.");
-      }
-
-      if (!state.audioContext) {
-        state.audioContext = new AudioContextClass({
-          latencyHint: "interactive",
-          sampleRate: 48000
-        });
-
-        state.audioRecordingDestination =
-          state.audioContext.createMediaStreamDestination();
-
-        state.ttsGainNode = state.audioContext.createGain();
-        state.ttsGainNode.gain.value = CONFIG.ttsVolume;
-
-        // 볼륨을 키워도 순간 피크가 깨지지 않도록 가볍게 제한합니다.
-        state.ttsLimiterNode =
-          state.audioContext.createDynamicsCompressor();
-        state.ttsLimiterNode.threshold.value = -7;
-        state.ttsLimiterNode.knee.value = 8;
-        state.ttsLimiterNode.ratio.value = 8;
-        state.ttsLimiterNode.attack.value = 0.003;
-        state.ttsLimiterNode.release.value = 0.16;
-
-        state.ttsGainNode.connect(state.ttsLimiterNode);
-
-        // 동일한 처리 결과를 스피커와 녹화 스트림에 그대로 분기합니다.
-        state.ttsLimiterNode.connect(state.audioContext.destination);
-        state.ttsLimiterNode.connect(state.audioRecordingDestination);
-      }
-
-      state.ttsGainNode.gain.value = CONFIG.ttsVolume;
-
-      if (state.audioContext.state === "suspended") {
-        await state.audioContext.resume();
-      }
-
-      return state.audioContext;
-    }
-
-    async function preloadTtsAudio() {
-      if (state.ttsLoadingPromise) {
-        return state.ttsLoadingPromise;
-      }
-
-      state.ttsLoadingPromise = (async () => {
-        const audioContext = await ensureAudioMixer();
-
-        await Promise.all(
-          Object.entries(CONFIG.ttsFiles).map(async ([word, url]) => {
-            if (state.ttsBuffers.has(word)) {
-              return;
-            }
-
-            const response = await fetch(url, { cache: "force-cache" });
-
-            if (!response.ok) {
-              throw new Error(`TTS 음원을 불러오지 못했습니다: ${url}`);
-            }
-
-            const arrayBuffer = await response.arrayBuffer();
-            const audioBuffer = await audioContext.decodeAudioData(arrayBuffer);
-            state.ttsBuffers.set(word, audioBuffer);
-          })
-        );
-      })().catch((error) => {
-        state.ttsLoadingPromise = null;
-        throw error;
-      });
-
-      return state.ttsLoadingPromise;
-    }
-
-    async function connectMicrophoneToMixer() {
-      await ensureAudioMixer();
-
-      const microphoneTrack = state.stream?.getAudioTracks?.()[0];
-
-      if (!microphoneTrack) {
-        return;
-      }
-
-      if (
-        state.microphoneSourceNode &&
-        state.microphoneTrackId === microphoneTrack.id
-      ) {
-        return;
-      }
-
-      try {
-        state.microphoneSourceNode?.disconnect();
-        state.microphoneGainNode?.disconnect();
-      } catch (error) {
-        console.warn(error);
-      }
-
-      const microphoneStream = new MediaStream([microphoneTrack]);
-      state.microphoneSourceNode =
-        state.audioContext.createMediaStreamSource(microphoneStream);
-      state.microphoneGainNode = state.audioContext.createGain();
-      state.microphoneGainNode.gain.value = 1;
-      state.microphoneTrackId = microphoneTrack.id;
-
-      // 마이크는 녹화에만 넣고 스피커로 되돌려 보내지 않습니다.
-      state.microphoneSourceNode.connect(state.microphoneGainNode);
-      state.microphoneGainNode.connect(state.audioRecordingDestination);
-    }
-
-    async function playDirectTts(word) {
-      try {
-        await preloadTtsAudio();
-        await ensureAudioMixer();
-
-        const audioBuffer = state.ttsBuffers.get(word);
-
-        if (!audioBuffer) {
-          throw new Error(`TTS 음원이 없습니다: ${word}`);
-        }
-
-        // 기존 TTS가 남아 있으면 중단해 단어 음성이 겹치지 않게 합니다.
-        state.activeTtsSources.forEach((activeSource) => {
-          try {
-            activeSource.stop();
-          } catch (error) {
-            console.warn(error);
-          }
-        });
-        state.activeTtsSources.clear();
-
-        const source = state.audioContext.createBufferSource();
-        source.buffer = audioBuffer;
-        source.connect(state.ttsGainNode);
-        state.activeTtsSources.add(source);
-
-        source.addEventListener("ended", () => {
-          state.activeTtsSources.delete(source);
-          try {
-            source.disconnect();
-          } catch (error) {
-            console.warn(error);
-          }
-        }, { once: true });
-
-        source.start();
-      } catch (error) {
-        console.error(error);
-        showToast("TTS 음원을 재생하지 못했습니다.", 3200);
-      }
     }
 
     function getSupportedRecordingMimeType() {
@@ -1331,14 +1152,10 @@
       recordingContext.filter = "none";
       recordingContext.restore();
 
-      // DOM UI는 제외하고 손 관절과 손가락 글씨가 그려진 캔버스만 합성합니다.
-      recordingContext.drawImage(
-        elements.overlay,
-        0,
-        0,
-        targetWidth,
-        targetHeight
-      );
+      // 화면용 오버레이 캔버스를 확대 복사하지 않고, 녹화 해상도와
+      // 카메라 object-fit: cover 크롭을 기준으로 관절을 다시 그립니다.
+      // 이 방식으로 저장된 영상에서 관절이 손보다 위·아래로 밀리는 현상을 방지합니다.
+      drawRecordingHandResults(targetWidth, targetHeight);
     }
 
     function clearPreviousRecording() {
@@ -1351,6 +1168,78 @@
       elements.saveRecordingButton.hidden = true;
       elements.saveRecordingButton.disabled = false;
       elements.saveRecordingButton.textContent = "영상 저장하기";
+    }
+
+    async function getAmplifiedMicrophoneTrack() {
+      const microphoneTrack = state.stream?.getAudioTracks?.()[0];
+
+      if (!microphoneTrack) {
+        return null;
+      }
+
+      const AudioContextClass =
+        window.AudioContext || window.webkitAudioContext;
+
+      if (!AudioContextClass) {
+        return microphoneTrack.clone();
+      }
+
+      if (!state.microphoneAudioContext) {
+        state.microphoneAudioContext = new AudioContextClass();
+
+        const microphoneStream = new MediaStream([microphoneTrack]);
+        state.microphoneSource =
+          state.microphoneAudioContext.createMediaStreamSource(
+            microphoneStream
+          );
+
+        state.microphoneGainNode =
+          state.microphoneAudioContext.createGain();
+        state.microphoneGainNode.gain.value =
+          CONFIG.microphoneGain;
+
+        state.microphoneDestination =
+          state.microphoneAudioContext.createMediaStreamDestination();
+
+        state.microphoneSource.connect(
+          state.microphoneGainNode
+        );
+        state.microphoneGainNode.connect(
+          state.microphoneDestination
+        );
+      }
+
+      if (state.microphoneAudioContext.state === "suspended") {
+        await state.microphoneAudioContext.resume();
+      }
+
+      const amplifiedTrack =
+        state.microphoneDestination?.stream
+          .getAudioTracks?.()[0];
+
+      return amplifiedTrack?.clone() ?? microphoneTrack.clone();
+    }
+
+    async function closeMicrophoneMixer() {
+      try {
+        state.microphoneSource?.disconnect();
+        state.microphoneGainNode?.disconnect();
+      } catch (error) {
+        console.warn(error);
+      }
+
+      if (state.microphoneAudioContext) {
+        try {
+          await state.microphoneAudioContext.close();
+        } catch (error) {
+          console.warn(error);
+        }
+      }
+
+      state.microphoneAudioContext = null;
+      state.microphoneSource = null;
+      state.microphoneGainNode = null;
+      state.microphoneDestination = null;
     }
 
     async function startRecording() {
@@ -1374,15 +1263,11 @@
 
       const mimeType = getSupportedRecordingMimeType();
       const stream = elements.recordingCanvas.captureStream(CONFIG.recordingFps);
-      // 마이크와 MP3 TTS가 합쳐진 Web Audio 트랙을 30fps 영상에 추가합니다.
-      await ensureAudioMixer();
-      await connectMicrophoneToMixer();
-
-      const mixedAudioTrack =
-        state.audioRecordingDestination?.stream.getAudioTracks?.()[0];
-
-      if (mixedAudioTrack) {
-        stream.addTrack(mixedAudioTrack.clone());
+      // 브라우저 기본 TTS는 스피커로 재생하고, 마이크로 들어온 소리를
+      // Web Audio GainNode로 증폭해 녹화 영상에 합칩니다.
+      const microphoneTrack = await getAmplifiedMicrophoneTrack();
+      if (microphoneTrack) {
+        stream.addTrack(microphoneTrack);
       }
 
       const options = mimeType
@@ -1691,11 +1576,9 @@
         audio: {
           channelCount: { ideal: 1 },
           sampleRate: { ideal: 48000 },
-          // TTS는 디지털로 직접 녹음하므로 스피커 소리가 마이크에
-          // 중복 유입되지 않도록 음향 에코 제거를 켭니다.
-          echoCancellation: true,
-          noiseSuppression: true,
-          autoGainControl: true
+          echoCancellation: false,
+          noiseSuppression: false,
+          autoGainControl: false
         },
         video: {
           facingMode: { ideal: "user" },
@@ -1959,8 +1842,24 @@
 
       showSelectedWord(word);
 
-      // MP3를 Web Audio로 재생하여 같은 신호를 스피커와 녹화에 넣습니다.
-      playDirectTts(word);
+      let ttsWord = word;
+      let lang = "en-US";
+
+      if (word === "hooonkyu") {
+        ttsWord = "훈규";
+        lang = "ko-KR";
+      }
+
+      const utterance = new SpeechSynthesisUtterance(ttsWord);
+      utterance.lang = lang;
+      // SpeechSynthesisUtterance의 허용 최대 볼륨은 1입니다.
+      // 실제 녹화 음량은 CONFIG.microphoneGain으로 추가 증폭합니다.
+      utterance.volume = CONFIG.ttsVolume;
+      utterance.rate = 1;
+      utterance.pitch = 1;
+      window.speechSynthesis.cancel();
+      window.speechSynthesis.resume();
+      window.speechSynthesis.speak(utterance);
 
       playFlash();
       spawnParticles(24);
@@ -2019,6 +1918,7 @@
 
       const landmarksList = results.landmarks ?? [];
       state.detectedHands = landmarksList.length;
+      state.latestHandResults = [];
 
       if (!landmarksList.length) {
         return;
@@ -2040,6 +1940,18 @@
           handName,
           landmarks
         );
+
+        state.latestHandResults.push({
+          handName,
+          landmarks: landmarks.map((landmark) => ({
+            x: landmark.x,
+            y: landmark.y,
+            z: landmark.z || 0
+          })),
+          nearest: nearest
+            ? { ...nearest }
+            : null
+        });
 
         drawHandSkeleton(
           landmarks,
@@ -2261,6 +2173,242 @@
       overlayContext.restore();
     }
 
+    function getRecordingDisplayMetrics(targetWidth, targetHeight) {
+      const videoWidth = elements.camera.videoWidth;
+      const videoHeight = elements.camera.videoHeight;
+
+      const scale = Math.max(
+        targetWidth / videoWidth,
+        targetHeight / videoHeight
+      );
+
+      const renderedWidth = videoWidth * scale;
+      const renderedHeight = videoHeight * scale;
+
+      return {
+        renderedWidth,
+        renderedHeight,
+        offsetX: (targetWidth - renderedWidth) / 2,
+        offsetY: (targetHeight - renderedHeight) / 2
+      };
+    }
+
+    function recordingLandmarkToCanvas(landmark, metrics) {
+      return {
+        x: metrics.offsetX + landmark.x * metrics.renderedWidth,
+        y: metrics.offsetY + landmark.y * metrics.renderedHeight
+      };
+    }
+
+    function drawRecordingHandResults(targetWidth, targetHeight) {
+      if (!state.latestHandResults.length) {
+        return;
+      }
+
+      const metrics = getRecordingDisplayMetrics(
+        targetWidth,
+        targetHeight
+      );
+
+      state.latestHandResults.forEach(({
+        handName,
+        landmarks,
+        nearest
+      }) => {
+        drawRecordingHandSkeleton(
+          landmarks,
+          metrics,
+          nearest,
+          targetWidth
+        );
+        drawRecordingFingerAssignments(
+          handName,
+          landmarks,
+          metrics,
+          nearest,
+          targetWidth
+        );
+      });
+    }
+
+    function drawRecordingHandSkeleton(
+      landmarks,
+      metrics,
+      nearest,
+      targetWidth
+    ) {
+      const widthScale = Math.max(
+        1,
+        targetWidth / Math.max(state.overlayWidth, 1)
+      );
+
+      recordingContext.save();
+      recordingContext.lineCap = "round";
+      recordingContext.lineJoin = "round";
+      recordingContext.lineWidth = 1.4 * widthScale;
+      recordingContext.strokeStyle =
+        "rgba(101, 233, 255, 0.34)";
+
+      HAND_CONNECTIONS.forEach(([startIndex, endIndex]) => {
+        const start = recordingLandmarkToCanvas(
+          landmarks[startIndex],
+          metrics
+        );
+        const end = recordingLandmarkToCanvas(
+          landmarks[endIndex],
+          metrics
+        );
+
+        recordingContext.beginPath();
+        recordingContext.moveTo(start.x, start.y);
+        recordingContext.lineTo(end.x, end.y);
+        recordingContext.stroke();
+      });
+
+      landmarks.forEach((landmark, index) => {
+        const point = recordingLandmarkToCanvas(
+          landmark,
+          metrics
+        );
+
+        recordingContext.beginPath();
+        recordingContext.arc(
+          point.x,
+          point.y,
+          (index === 4 ? 3.6 : 2.1) * widthScale,
+          0,
+          Math.PI * 2
+        );
+        recordingContext.fillStyle =
+          index === 4
+            ? "rgba(255, 255, 255, 0.92)"
+            : "rgba(101, 233, 255, 0.54)";
+        recordingContext.fill();
+      });
+
+      if (nearest) {
+        const thumb = recordingLandmarkToCanvas(
+          landmarks[4],
+          metrics
+        );
+        const finger = recordingLandmarkToCanvas(
+          landmarks[nearest.tip],
+          metrics
+        );
+        const proximity = Math.max(
+          0,
+          Math.min(
+            1,
+            1 - nearest.ratio / CONFIG.pinchOffRatio
+          )
+        );
+
+        recordingContext.beginPath();
+        recordingContext.moveTo(thumb.x, thumb.y);
+        recordingContext.lineTo(finger.x, finger.y);
+        recordingContext.lineWidth =
+          (2 + proximity * 2) * widthScale;
+        recordingContext.strokeStyle =
+          `rgba(255, 255, 255, ${0.12 + proximity * 0.65})`;
+        recordingContext.stroke();
+      }
+
+      recordingContext.restore();
+    }
+
+    function drawRecordingFingerAssignments(
+      handName,
+      landmarks,
+      metrics,
+      nearest,
+      targetWidth
+    ) {
+      const assignments = CONFIG.assignments[handName] ?? [];
+      const widthScale = Math.max(
+        1,
+        targetWidth / Math.max(state.overlayWidth, 1)
+      );
+
+      assignments.forEach((assignment) => {
+        if (!assignment.word) {
+          return;
+        }
+
+        const point = recordingLandmarkToCanvas(
+          landmarks[assignment.tip],
+          metrics
+        );
+        const isNearest =
+          nearest && nearest.tip === assignment.tip;
+        const isClose =
+          isNearest && nearest.ratio <= CONFIG.pinchOffRatio;
+
+        recordingContext.save();
+
+        if (isClose) {
+          recordingContext.beginPath();
+          recordingContext.arc(
+            point.x,
+            point.y,
+            11 * widthScale,
+            0,
+            Math.PI * 2
+          );
+          recordingContext.fillStyle = assignment.color + "30";
+          recordingContext.fill();
+        }
+
+        recordingContext.beginPath();
+        recordingContext.arc(
+          point.x,
+          point.y,
+          (isClose ? 5.8 : 4.4) * widthScale,
+          0,
+          Math.PI * 2
+        );
+        recordingContext.fillStyle = "#ff314f";
+        recordingContext.shadowColor = assignment.color;
+        recordingContext.shadowBlur =
+          (isClose ? 18 : 9) * widthScale;
+        recordingContext.fill();
+        recordingContext.restore();
+
+        recordingContext.save();
+        const fontSize = Math.max(
+          13 * widthScale,
+          Math.min(19 * widthScale, targetWidth * 0.044)
+        );
+        recordingContext.font =
+          `italic 700 ${fontSize}px Georgia, ` +
+          `"Times New Roman", serif`;
+        recordingContext.textAlign = "center";
+        recordingContext.textBaseline = "bottom";
+        recordingContext.fillStyle = assignment.color;
+        recordingContext.shadowColor =
+          "rgba(0, 0, 0, 0.82)";
+        recordingContext.shadowBlur = 8 * widthScale;
+        recordingContext.lineWidth =
+          (isClose ? 4 : 3) * widthScale;
+        recordingContext.strokeStyle =
+          "rgba(4, 4, 8, 0.72)";
+
+        const y =
+          point.y - (isClose ? 14 : 11) * widthScale;
+
+        recordingContext.strokeText(
+          assignment.word,
+          point.x,
+          y
+        );
+        recordingContext.fillText(
+          assignment.word,
+          point.x,
+          y
+        );
+        recordingContext.restore();
+      });
+    }
+
     async function inferenceLoop(timestamp) {
       if (!state.running) {
         return;
@@ -2315,17 +2463,11 @@
       syncResultMode();
 
       try {
-        // 사용자 클릭 안에서 AudioContext를 먼저 활성화해야 iOS에서도
-        // MP3 TTS가 스피커와 녹화 스트림 양쪽으로 정상 출력됩니다.
-        await ensureAudioMixer();
-
         await Promise.all([
           createHandLandmarker(),
-          startCamera(),
-          preloadTtsAudio()
+          startCamera()
         ]);
 
-        await connectMicrophoneToMixer();
         requestWakeLock(); 
 
         resetSelection();
@@ -2357,6 +2499,7 @@
       state.pinchStates.clear();
       state.completing = false;
       state.detectedHands = 0;
+      state.latestHandResults = [];
 
       clearTimeout(state.selectedWordTimer);
       clearTimeout(state.completeTimer);
@@ -2492,6 +2635,7 @@
       state.stream = null;
       elements.camera.srcObject = null;
       elements.cameraLayer.classList.remove("active");
+      closeMicrophoneMixer();
     }
 
     elements.startButton.addEventListener(
