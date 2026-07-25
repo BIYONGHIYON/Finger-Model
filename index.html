@@ -258,35 +258,6 @@
       pointer-events: none;
     }
 
-    .floating-word {
-      position: absolute;
-      color: rgba(255, 255, 255, 0.09);
-      font-family: Georgia, "Times New Roman", serif;
-      font-style: italic;
-      user-select: none;
-    }
-
-    .floating-word:nth-child(1) {
-      top: 17%;
-      left: -4%;
-      font-size: clamp(78px, 29vw, 150px);
-      transform: rotate(-12deg);
-    }
-
-    .floating-word:nth-child(2) {
-      top: 34%;
-      right: -8%;
-      font-size: clamp(70px, 25vw, 130px);
-      transform: rotate(10deg);
-    }
-
-    .floating-word:nth-child(3) {
-      bottom: 22%;
-      left: 17%;
-      font-size: clamp(60px, 20vw, 110px);
-      transform: rotate(-5deg);
-    }
-
     .eyebrow {
       margin-bottom: 13px;
       color: rgba(255, 255, 255, 0.58);
@@ -385,40 +356,6 @@
         calc(var(--safe-bottom) + 15px);
     }
 
-    .status-pill {
-      display: flex;
-      align-items: center;
-      gap: 8px;
-      min-height: 38px;
-      max-width: calc(100vw - 34px);
-      padding: 8px 14px;
-      border: 1px solid var(--glass-border);
-      border-radius: 999px;
-      background: rgba(6, 6, 11, 0.34);
-      color: rgba(255, 255, 255, 0.82);
-      font-size: 12px;
-      font-weight: 650;
-      backdrop-filter: blur(18px);
-      -webkit-backdrop-filter: blur(18px);
-    }
-
-    .status-dot {
-      width: 7px;
-      height: 7px;
-      flex: 0 0 auto;
-      border-radius: 50%;
-      background: #ffd76e;
-      box-shadow: 0 0 13px currentColor;
-    }
-
-    .status-pill.ready .status-dot {
-      background: #78ffba;
-    }
-
-    .status-pill.error .status-dot {
-      background: #ff617b;
-    }
-
     .center-stage {
       position: relative;
       display: grid;
@@ -426,6 +363,7 @@
       width: min(82vw, 420px);
       aspect-ratio: 1;
       pointer-events: none;
+      margin-top: 40px;
     }
 
     .guide-ring {
@@ -524,7 +462,6 @@
       display: grid;
       grid-template-columns: repeat(5, 1fr);
       gap: 7px;
-      margin-bottom: 11px;
     }
 
     .word-chip {
@@ -552,16 +489,6 @@
         ),
         rgba(255, 255, 255, 0.07);
       transform: translateY(-2px);
-    }
-
-    .instruction {
-      min-height: 38px;
-      margin: 0;
-      color: rgba(255, 255, 255, 0.66);
-      font-size: 12px;
-      line-height: 1.55;
-      text-align: center;
-      word-break: keep-all;
     }
 
     .progress {
@@ -732,9 +659,6 @@
 
     <section class="screen intro" id="introScreen">
       <div class="intro-decoration" aria-hidden="true">
-        <span class="floating-word">love</span>
-        <span class="floating-word">so</span>
-        <span class="floating-word">much</span>
       </div>
 
       <h1>
@@ -743,8 +667,7 @@
       </h1>
 
       <p class="intro-copy">
-        멘트 3. 양손을 펼치면 손가락 끝에 단어가 나타납니다.
-        엄지와 원하는 손가락 끝을 맞대어 메시지를 선택해 주세요.
+        멘트 작성
       </p>
 
       <button class="primary-button" id="startButton">
@@ -753,11 +676,6 @@
     </section>
 
     <section class="screen experience hidden" id="experienceScreen">
-      <div class="status-pill" id="statusPill">
-        <span class="status-dot"></span>
-        <span id="statusText">준비 중...</span>
-      </div>
-
       <div class="center-stage">
         <div class="guide-ring"></div>
         <strong class="selected-word" id="selectedWord"></strong>
@@ -771,10 +689,6 @@
           <div class="word-chip" data-word="so">so</div>
           <div class="word-chip" data-word="much">much</div>
         </div>
-
-        <p class="instruction" id="instruction">
-          양손을 화면 안에 펼쳐 주세요.
-        </p>
 
         <div class="progress">
           <div class="progress-fill" id="progressFill"></div>
@@ -876,9 +790,6 @@
       resetButton: $("#resetButton"),
       restartButton: $("#restartButton"),
 
-      statusPill: $("#statusPill"),
-      statusText: $("#statusText"),
-      instruction: $("#instruction"),
       selectedWord: $("#selectedWord"),
       progressFill: $("#progressFill"),
       wordChips: [...document.querySelectorAll(".word-chip")],
@@ -932,15 +843,6 @@
       Object.entries(screens).forEach(([key, screen]) => {
         screen.classList.toggle("hidden", key !== name);
       });
-    }
-
-    function setStatus(text, type = "") {
-      elements.statusText.textContent = text;
-      elements.statusPill.classList.remove("ready", "error");
-
-      if (type) {
-        elements.statusPill.classList.add(type);
-      }
     }
 
     function showToast(message, duration = 2800) {
@@ -1280,9 +1182,16 @@
       updateProgress();
       showSelectedWord(word);
 
-      const ttsWord = word === "hoonkyu" ? "Hun-gyu" : word;
+      let ttsWord = word;
+      let lang = "en-US";
+
+      if (word === "hoonkyu") {
+        ttsWord = "훈규";
+        lang = "ko-KR";
+      }
+
       const utterance = new SpeechSynthesisUtterance(ttsWord);
-      utterance.lang = "en-US";
+      utterance.lang = lang;
       window.speechSynthesis.speak(utterance);
 
       playFlash();
@@ -1341,8 +1250,6 @@
       const landmarksList = results.landmarks ?? [];
       state.detectedHands = landmarksList.length;
 
-      updateStatusForDetectedHands();
-
       if (!landmarksList.length) {
         return;
       }
@@ -1377,28 +1284,6 @@
           nearest
         );
       });
-    }
-
-    function updateStatusForDetectedHands() {
-      if (state.detectedHands >= 2) {
-        setStatus(
-          "양손 인식 완료 · 엄지와 단어를 맞대세요",
-          "ready"
-        );
-
-        elements.instruction.textContent =
-          "엄지와 원하는 단어의 손가락 끝을 맞대어 선택해 주세요.";
-      } else if (state.detectedHands === 1) {
-        setStatus("한 손을 더 보여 주세요");
-
-        elements.instruction.textContent =
-          "양손이 모두 화면 안에 들어오도록 조금 뒤로 이동해 주세요.";
-      } else {
-        setStatus("양손을 찾고 있어요");
-
-        elements.instruction.textContent =
-          "손바닥이 카메라를 향하도록 양손을 펼쳐 주세요.";
-      }
     }
 
     function drawHandSkeleton(
@@ -1641,9 +1526,6 @@
         drawResults(results);
       } catch (error) {
         console.error(error);
-        setStatus("손 인식 중 오류가 발생했습니다", "error");
-        elements.instruction.textContent =
-          error?.message ?? String(error);
       } finally {
         state.inferenceBusy = false;
       }
@@ -1653,8 +1535,6 @@
       elements.startButton.disabled = true;
       elements.startButton.querySelector("span").textContent =
         "카메라와 모델 준비 중...";
-
-      setStatus("준비 중...");
 
       try {
         await Promise.all([
@@ -1670,7 +1550,6 @@
         elements.resetButton.hidden = false;
         state.running = true;
 
-        setStatus("양손을 찾고 있어요");
         requestAnimationFrame(inferenceLoop);
       } catch (error) {
         console.error(error);
@@ -1682,7 +1561,6 @@
 
         stopCamera();
         showToast(message, 4800);
-        setStatus("시작할 수 없습니다", "error");
       } finally {
         elements.startButton.disabled = false;
         elements.startButton.querySelector("span").textContent =
@@ -1705,9 +1583,6 @@
 
       updateProgress();
       clearOverlay();
-
-      elements.instruction.textContent =
-        "양손을 화면 안에 펼쳐 주세요.";
     }
 
     function resetWhileRunning() {
@@ -1718,7 +1593,6 @@
 
       if (state.stream && state.landmarker) {
         state.running = true;
-        setStatus("양손을 찾고 있어요");
 
         if (shouldRestartLoop) {
           requestAnimationFrame(inferenceLoop);
@@ -1730,7 +1604,6 @@
       state.running = false;
       clearOverlay();
       showScreen("complete");
-      setStatus("메시지 완성", "ready");
       spawnParticles(78);
       playFlash();
     }
