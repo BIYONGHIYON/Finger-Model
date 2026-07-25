@@ -1,4 +1,3 @@
-<!-- 초안 -->
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -738,11 +737,9 @@
         <span class="floating-word">much</span>
       </div>
 
-      <div class="eyebrow">MENT 2 · INTERACTIVE MESSAGE</div>
-
       <h1>
-        Touch your
-        <em>feeling.</em>
+        원하는
+        <em>멘트 작성</em>
       </h1>
 
       <p class="intro-copy">
@@ -938,6 +935,18 @@
       completeTimer: null
     };
 
+    let wakeLock = null;
+
+    async function requestWakeLock() {
+      try {
+        if ('wakeLock' in navigator) {
+          wakeLock = await navigator.wakeLock.request('screen');
+        }
+      } catch (err) {
+        console.warn('Wake Lock error:', err);
+      }
+    }
+
     function showScreen(name) {
       const screens = {
         intro: elements.introScreen,
@@ -1053,6 +1062,19 @@
           frameRate: { ideal: 24, max: 30 }
         }
       });
+
+      // 카메라 줌 아웃 (하드웨어가 지원하는 경우 축소율 최대로 설정)
+      try {
+        const videoTrack = state.stream.getVideoTracks()[0];
+        const capabilities = videoTrack.getCapabilities();
+        if (capabilities.zoom) {
+          await videoTrack.applyConstraints({
+            advanced: [{ zoom: capabilities.zoom.min }]
+          });
+        }
+      } catch (e) {
+        console.warn("Zoom constraint ignored:", e);
+      }
 
       elements.camera.srcObject = state.stream;
 
@@ -1651,6 +1673,8 @@
           startCamera()
         ]);
 
+        requestWakeLock(); // 화면 꺼짐 방지 실행
+
         resetSelection();
         showScreen("experience");
 
@@ -1846,6 +1870,8 @@
           state.running = false;
           return;
         }
+
+        requestWakeLock(); // 다시 화면으로 돌아왔을 때 Wake Lock 재요청
 
         if (
           state.stream &&
