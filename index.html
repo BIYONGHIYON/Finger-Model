@@ -1031,6 +1031,19 @@
 
     let wakeLock = null;
 
+    function setAudioSessionType(type) {
+      try {
+        if (navigator.audioSession && "type" in navigator.audioSession) {
+          navigator.audioSession.type = type;
+          return true;
+        }
+      } catch (error) {
+        console.warn(`오디오 세션을 ${type}(으)로 변경하지 못했습니다.`, error);
+      }
+
+      return false;
+    }
+
     async function requestWakeLock() {
       try {
         if ('wakeLock' in navigator) {
@@ -1586,6 +1599,7 @@
       if (!navigator.mediaDevices?.getUserMedia) {
         throw new Error("이 브라우저에서는 카메라를 사용할 수 없습니다.");
       }
+      setAudioSessionType("play-and-record");
 
       state.stream = await navigator.mediaDevices.getUserMedia({
         audio: {
@@ -1607,10 +1621,11 @@
         }
       });
 
+      setAudioSessionType("playback");
+
       try {
         const videoTrack = state.stream.getVideoTracks()[0];
         const capabilities = videoTrack.getCapabilities();
-
         try {
           await videoTrack.applyConstraints({
             frameRate: { ideal: CONFIG.recordingFps, max: CONFIG.recordingFps }
@@ -1872,6 +1887,8 @@
         ttsWord = "훈규";
         lang = "ko-KR";
       }
+
+      setAudioSessionType("playback");
 
       const utterance = new SpeechSynthesisUtterance(ttsWord);
       utterance.lang = lang;
@@ -2657,6 +2674,7 @@
       state.running = false;
       elements.app.classList.remove("camera-mode");
       elements.recordControls.classList.add("hidden");
+      setAudioSessionType("auto");
 
       cancelRecordingFrameLoop();
 
@@ -2742,6 +2760,7 @@
         }
 
         requestWakeLock();
+        setAudioSessionType("playback");
         syncCameraGeometry(true);
         state.geometryWarmupFrames = 8;
 
