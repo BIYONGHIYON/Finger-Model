@@ -815,27 +815,6 @@
 
     "use strict";
 
-    /*
-      ================================================================
-      문구 ↔ 손가락 매핑
-      ================================================================
-
-      전면 카메라 영상을 모델 입력 단계에서도 거울처럼 반전하므로,
-      아래 Left / Right는 사용자의 실제 왼손 / 오른손 기준입니다.
-
-      화면에서 보이는 배열:
-        왼쪽에 보이는 오른손: much, so
-        오른쪽에 보이는 왼손: i, love, hoonkyu
-
-      손가락 번호:
-        검지 끝  8
-        중지 끝 12
-        약지 끝 16
-
-      문구가 5개이므로 오른손 약지는 비워 두었습니다.
-      여섯 번째 문구를 추가할 경우 word: "" 부분만 수정하면 됩니다.
-    */
-
     const CONFIG = {
       modelUrl:
         "https://storage.googleapis.com/mediapipe-models/" +
@@ -860,17 +839,13 @@
 
       allWords: ["i", "love", "hoonkyu", "so", "much"],
 
-      // 손바닥 너비 대비 엄지-손가락 거리 비율
       pinchOnRatio: 0.36,
       pinchOffRatio: 0.52,
 
-      // 이 프레임 수만큼 연속 접촉해야 선택
       stableFrames: 3,
 
-      // iPhone 발열과 UI 끊김을 줄이기 위한 추론 간격
       inferenceIntervalMs: 72,
 
-      // 모델에 전달할 최대 긴 변 길이
       inferenceLongSide: 640,
 
       completeDelayMs: 850
@@ -943,7 +918,7 @@
           wakeLock = await navigator.wakeLock.request('screen');
         }
       } catch (err) {
-        console.warn('Wake Lock error:', err);
+        console.warn(err);
       }
     }
 
@@ -1018,7 +993,6 @@
         minTrackingConfidence: 0.5
       };
 
-      // GPU 우선, 지원하지 않는 Safari 환경에서는 CPU로 자동 재시도
       try {
         state.landmarker = await HandLandmarker.createFromOptions(
           vision,
@@ -1031,7 +1005,7 @@
           }
         );
       } catch (gpuError) {
-        console.warn("GPU delegate failed. Retrying with CPU.", gpuError);
+        console.warn(gpuError);
 
         state.landmarker = await HandLandmarker.createFromOptions(
           vision,
@@ -1053,20 +1027,19 @@
         throw new Error("이 브라우저에서는 카메라를 사용할 수 없습니다.");
       }
 
+      const screenRatio = window.innerHeight / window.innerWidth;
+
       state.stream = await navigator.mediaDevices.getUserMedia({
         audio: false,
         video: {
           facingMode: { ideal: "user" },
-          // 브라우저가 임의로 영상을 자르지 못하도록 강제 (크롭 방지)
           resizeMode: "none",
-          // 기기의 원본 센서 비율과 최대 해상도를 그대로 가져오도록 유도
           width: { ideal: 3840 },
           height: { ideal: 3840 },
           frameRate: { ideal: 24, max: 30 }
         }
       });
 
-      // 카메라 하드웨어 줌을 최소치(광각)로 명시적 설정
       try {
         const videoTrack = state.stream.getVideoTracks()[0];
         const capabilities = videoTrack.getCapabilities();
@@ -1083,7 +1056,7 @@
           await videoTrack.applyConstraints(constraints);
         }
       } catch (e) {
-        console.warn("Zoom constraint ignored:", e);
+        console.warn(e);
       }
 
       elements.camera.srcObject = state.stream;
@@ -1306,6 +1279,11 @@
       state.activatedWords.add(word);
       updateProgress();
       showSelectedWord(word);
+
+      const utterance = new SpeechSynthesisUtterance(word);
+      utterance.lang = "en-US";
+      window.speechSynthesis.speak(utterance);
+
       playFlash();
       spawnParticles(24);
 
@@ -1683,7 +1661,7 @@
           startCamera()
         ]);
 
-        requestWakeLock(); // 화면 꺼짐 방지 실행
+        requestWakeLock(); 
 
         resetSelection();
         showScreen("experience");
@@ -1881,7 +1859,7 @@
           return;
         }
 
-        requestWakeLock(); // 다시 화면으로 돌아왔을 때 Wake Lock 재요청
+        requestWakeLock(); 
 
         if (
           state.stream &&
