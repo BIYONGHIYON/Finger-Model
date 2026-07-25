@@ -1,26 +1,35 @@
 <!--
 =========================================================
 1. 문구 수정
-    - 스크립트 영역의 TEXT_CONFIG 내부 (line 670)
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 864)
 
 2. 결과 화면 켜기/끄기
-    - 스크립트 영역의 endlessMode (line 689)
-    - true  : 결과화면 없음
-    - false : 결과화면 있음 (5개 단어 선택 시 결과 화면으로 넘어감)
+    - 시작 화면의 "결과 화면" 스위치에서 선택
+    - 끔: 단어를 계속 선택하는 모드
+    - 켬: 5개 단어 선택 후 결과 화면 표시
 
-3. 폰트 수정
+3. 녹화
+    - 카메라 시작과 동시에 자동 녹화
+    - 녹화본에는 카메라 영상 + 손 관절 + 손가락 글씨만 포함
+    - 화면의 버튼, 결과 패널, 효과 등 UI는 녹화되지 않음
+    - 촬영 화면의 "녹화 종료 · 저장" 버튼으로 저장
+
+4. 폰트 수정
     - 코드에서 Ctrl+F 키를 눌러 'font-family'를 검색
     - 일반 텍스트 폰트 : 상단 스타일 영역의 body { font-family: ... } 부분 수정
     - 영어/강조 폰트 (단어 칩, 선택된 단어 등) : .selected-word, .word-chip 영역의 font-family 수정
 
-4. 메인 컬러(테마 색상) 수정
-    - 상단 스타일 영역 맨 위쪽(line 41)의 :root { ... } 블록
+
+5. 메인 컬러(테마 색상) 수정
+    - 상단 스타일 영역 맨 위쪽(line 50)의 :root { ... } 블록
     - --pink, --purple, --cyan 뒤에 있는 색상 코드(예: #ff5f9e)를 변경
 
-5. 웹사이트에 반영
-    - 수정 후 저장, github에 commit & push하면 약 2분내로 반영됨
+6. 웹사이트에 반영
+    - 수정 후 저장, GitHub에 commit & push, 약 2분내로 반영됨
 =========================================================
+
 -->
+
 <!DOCTYPE html>
 <html lang="ko">
 <head>
@@ -35,7 +44,7 @@
     name="apple-mobile-web-app-status-bar-style"
     content="black-translucent"
   />
-  <title>i love hooonkyu so much</title>
+  <title>Happy Birthday</title>
 
   <style>
     :root {
@@ -192,6 +201,22 @@
       to { transform: translate(-15vw, -9vh) scale(0.86); }
     }
 
+    /* 촬영 중에는 배경의 원형 장식을 모두 숨김 */
+    .app.camera-mode .orb,
+    .app.camera-mode .guide-ring {
+      display: none;
+    }
+
+    .app.camera-mode .shade {
+      background: linear-gradient(
+        to bottom,
+        rgba(2, 2, 6, 0.44) 0%,
+        rgba(2, 2, 6, 0.03) 28%,
+        rgba(2, 2, 6, 0.01) 64%,
+        rgba(2, 2, 6, 0.48) 100%
+      );
+    }
+
     .screen {
       position: absolute;
       inset: 0;
@@ -310,6 +335,82 @@
       cursor: wait;
     }
 
+    .intro-settings {
+      width: 100%;
+      margin: 0 0 12px;
+      padding: 14px 16px;
+      border: 1px solid rgba(255, 255, 255, 0.15);
+      border-radius: 19px;
+      background: rgba(8, 8, 14, 0.46);
+      backdrop-filter: blur(18px);
+      -webkit-backdrop-filter: blur(18px);
+    }
+
+    .toggle-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 16px;
+      cursor: pointer;
+      user-select: none;
+    }
+
+    .toggle-copy {
+      display: grid;
+      gap: 4px;
+      min-width: 0;
+    }
+
+    .toggle-copy strong {
+      font-size: 14px;
+      font-weight: 760;
+    }
+
+    .toggle-copy small {
+      color: rgba(255, 255, 255, 0.55);
+      font-size: 11px;
+      line-height: 1.4;
+    }
+
+    .toggle-row input {
+      position: absolute;
+      opacity: 0;
+      pointer-events: none;
+    }
+
+    .toggle-switch {
+      position: relative;
+      flex: 0 0 auto;
+      width: 48px;
+      height: 28px;
+      border: 1px solid rgba(255, 255, 255, 0.2);
+      border-radius: 999px;
+      background: rgba(255, 255, 255, 0.11);
+      transition: 220ms ease;
+    }
+
+    .toggle-switch::after {
+      content: "";
+      position: absolute;
+      top: 3px;
+      left: 3px;
+      width: 20px;
+      height: 20px;
+      border-radius: 50%;
+      background: #fff;
+      box-shadow: 0 3px 10px rgba(0, 0, 0, 0.28);
+      transition: transform 220ms cubic-bezier(.2, .8, .2, 1);
+    }
+
+    .toggle-row input:checked + .toggle-switch {
+      border-color: rgba(255, 95, 158, 0.66);
+      background: linear-gradient(135deg, var(--pink), var(--purple));
+    }
+
+    .toggle-row input:checked + .toggle-switch::after {
+      transform: translateX(20px);
+    }
+
     @keyframes buttonShine {
       0%, 25% { transform: translateX(-72%); }
       65%, 100% { transform: translateX(72%); }
@@ -413,6 +514,77 @@
         opacity: 0;
         transform: scale(0.96);
       }
+    }
+
+    .record-controls {
+      position: absolute;
+      top: calc(var(--safe-top) + 10px);
+      right: 14px;
+      z-index: 22;
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .record-controls.hidden {
+      opacity: 0;
+      visibility: hidden;
+      pointer-events: none;
+      transform: translateY(-8px);
+    }
+
+    .record-button,
+    .save-button {
+      min-height: 42px;
+      padding: 0 15px;
+      border: 1px solid rgba(255, 255, 255, 0.22);
+      border-radius: 999px;
+      background: rgba(5, 5, 10, 0.72);
+      color: #fff;
+      font-size: 12px;
+      font-weight: 760;
+      cursor: pointer;
+      backdrop-filter: blur(16px);
+      -webkit-backdrop-filter: blur(16px);
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.24);
+    }
+
+    .record-button.recording::before {
+      content: "";
+      display: inline-block;
+      width: 8px;
+      height: 8px;
+      margin-right: 7px;
+      border-radius: 50%;
+      background: var(--red);
+      box-shadow: 0 0 0 5px rgba(255, 78, 103, 0.12);
+      animation: recordingPulse 1.2s ease-in-out infinite;
+    }
+
+    .record-button:disabled,
+    .save-button:disabled {
+      opacity: 0.55;
+      cursor: wait;
+    }
+
+    @keyframes recordingPulse {
+      50% { opacity: 0.45; }
+    }
+
+    .complete-actions {
+      display: grid;
+      gap: 10px;
+    }
+
+    .save-button {
+      width: 100%;
+      min-height: 54px;
+      background: rgba(7, 7, 13, 0.64);
+    }
+
+    .save-button[hidden] {
+      display: none;
     }
 
     .bottom-panel {
@@ -622,14 +794,29 @@
 
       <p class="intro-copy" id="ui-intro-copy"></p>
 
+      <div class="intro-settings">
+        <label class="toggle-row" for="resultToggle">
+          <span class="toggle-copy">
+            <strong>결과 화면</strong>
+          </span>
+          <input type="checkbox" id="resultToggle" />
+          <span class="toggle-switch" aria-hidden="true"></span>
+        </label>
+      </div>
+
       <button class="primary-button" id="startButton">
         <span id="ui-start-btn"></span>
       </button>
     </section>
 
     <section class="screen experience hidden" id="experienceScreen">
+      <div class="record-controls hidden" id="recordControls">
+        <button class="record-button" id="recordButton" type="button">
+          녹화 준비 중
+        </button>
+      </div>
+
       <div class="center-stage">
-        <div class="guide-ring"></div>
         <strong class="selected-word" id="selectedWord"></strong>
       </div>
 
@@ -654,13 +841,20 @@
         <h2 id="ui-complete-title"></h2>
         <p id="ui-complete-copy"></p>
 
-        <button class="primary-button" id="restartButton">
-          <span id="ui-restart-btn"></span>
-        </button>
+        <div class="complete-actions">
+          <button class="save-button" id="saveRecordingButton" type="button" hidden>
+            영상 저장하기
+          </button>
+
+          <button class="primary-button" id="restartButton">
+            <span id="ui-restart-btn"></span>
+          </button>
+        </div>
       </div>
     </section>
 
     <canvas id="inferenceCanvas" hidden></canvas>
+    <canvas id="recordingCanvas" hidden></canvas>
     <div class="flash" id="flash"></div>
     <div class="toast" id="toast"></div>
   </main>
@@ -686,7 +880,9 @@
     "use strict";
 
     const CONFIG = {
-      endlessMode: true,//이거 변경하면 됩니다 콤마 지우면 안됨
+      endlessMode: true,
+      recordingFps: 30,
+      recordingLongSide: 1280,
       modelUrl:
         "https://storage.googleapis.com/mediapipe-models/" +
         "hand_landmarker/hand_landmarker/float16/1/hand_landmarker.task",
@@ -734,10 +930,12 @@
     const $ = (selector) => document.querySelector(selector);
 
     const elements = {
+      app: $(".app"),
       camera: $("#camera"),
       cameraLayer: $("#cameraLayer"),
       overlay: $("#overlay"),
       inferenceCanvas: $("#inferenceCanvas"),
+      recordingCanvas: $("#recordingCanvas"),
 
       introScreen: $("#introScreen"),
       experienceScreen: $("#experienceScreen"),
@@ -745,6 +943,10 @@
 
       startButton: $("#startButton"),
       restartButton: $("#restartButton"),
+      resultToggle: $("#resultToggle"),
+      recordControls: $("#recordControls"),
+      recordButton: $("#recordButton"),
+      saveRecordingButton: $("#saveRecordingButton"),
 
       selectedWord: $("#selectedWord"),
       progressFill: $("#progressFill"),
@@ -753,10 +955,6 @@
       flash: $("#flash"),
       toast: $("#toast")
     };
-
-    if (CONFIG.endlessMode) {
-      $(".bottom-panel").style.display = "none";
-    }
 
     $("#ui-intro-main").innerHTML = TEXT_CONFIG.introMain;
     $("#ui-intro-sub").innerHTML = TEXT_CONFIG.introSub;
@@ -769,6 +967,11 @@
 
     const overlayContext = elements.overlay.getContext("2d");
     const inferenceContext = elements.inferenceCanvas.getContext("2d", {
+      alpha: false,
+      desynchronized: true
+    });
+
+    const recordingContext = elements.recordingCanvas.getContext("2d", {
       alpha: false,
       desynchronized: true
     });
@@ -787,7 +990,16 @@
       pinchStates: new Map(),
       completing: false,
       selectedWordTimer: null,
-      completeTimer: null
+      completeTimer: null,
+      mediaRecorder: null,
+      recordingStream: null,
+      recordingChunks: [],
+      recordingFrameId: null,
+      recordingBlob: null,
+      recordingUrl: null,
+      recordingMimeType: "",
+      recordingStartedAt: 0,
+      finalizeRecordingPromise: null
     };
 
     let wakeLock = null;
@@ -812,6 +1024,10 @@
       Object.entries(screens).forEach(([key, screen]) => {
         screen.classList.toggle("hidden", key !== name);
       });
+
+      const isCameraMode = name === "experience";
+      elements.app.classList.toggle("camera-mode", isCameraMode);
+      elements.recordControls.classList.toggle("hidden", !isCameraMode);
     }
 
     function showToast(message, duration = 2800) {
@@ -823,6 +1039,287 @@
       showToast.timer = setTimeout(() => {
         elements.toast.classList.remove("show");
       }, duration);
+    }
+
+    function syncResultMode() {
+      CONFIG.endlessMode = !elements.resultToggle.checked;
+      $(".bottom-panel").style.display = CONFIG.endlessMode ? "none" : "block";
+    }
+
+    function getSupportedRecordingMimeType() {
+      if (!("MediaRecorder" in window)) {
+        return "";
+      }
+
+      const candidates = [
+        "video/mp4;codecs=avc1.42E01E",
+        "video/mp4",
+        "video/webm;codecs=vp9",
+        "video/webm;codecs=vp8",
+        "video/webm"
+      ];
+
+      if (typeof MediaRecorder.isTypeSupported !== "function") {
+        return "";
+      }
+
+      return candidates.find((type) => MediaRecorder.isTypeSupported(type)) ?? "";
+    }
+
+    function configureRecordingCanvas() {
+      const width = Math.max(1, state.overlayWidth);
+      const height = Math.max(1, state.overlayHeight);
+
+      if (!width || !height) {
+        return false;
+      }
+
+      const longSide = Math.min(
+        CONFIG.recordingLongSide,
+        Math.max(width, height) * Math.min(window.devicePixelRatio || 1, 2)
+      );
+      const scale = longSide / Math.max(width, height);
+
+      const makeEven = (value) => Math.max(2, Math.round(value / 2) * 2);
+
+      elements.recordingCanvas.width = makeEven(width * scale);
+      elements.recordingCanvas.height = makeEven(height * scale);
+      return true;
+    }
+
+    function drawRecordingFrame() {
+      const recorder = state.mediaRecorder;
+
+      if (!recorder || recorder.state !== "recording") {
+        state.recordingFrameId = null;
+        return;
+      }
+
+      state.recordingFrameId = requestAnimationFrame(drawRecordingFrame);
+
+      const targetWidth = elements.recordingCanvas.width;
+      const targetHeight = elements.recordingCanvas.height;
+      const videoWidth = elements.camera.videoWidth;
+      const videoHeight = elements.camera.videoHeight;
+
+      if (!targetWidth || !targetHeight || !videoWidth || !videoHeight) {
+        return;
+      }
+
+      const scale = Math.max(
+        targetWidth / videoWidth,
+        targetHeight / videoHeight
+      );
+      const drawWidth = videoWidth * scale;
+      const drawHeight = videoHeight * scale;
+      const drawX = (targetWidth - drawWidth) / 2;
+      const drawY = (targetHeight - drawHeight) / 2;
+
+      recordingContext.save();
+      recordingContext.fillStyle = "#000";
+      recordingContext.fillRect(0, 0, targetWidth, targetHeight);
+
+      // 화면에 보이는 셀피 카메라와 동일하게 좌우 반전합니다.
+      recordingContext.translate(targetWidth, 0);
+      recordingContext.scale(-1, 1);
+      recordingContext.filter = "brightness(0.88) contrast(1.04) saturate(0.96)";
+      recordingContext.drawImage(
+        elements.camera,
+        drawX,
+        drawY,
+        drawWidth,
+        drawHeight
+      );
+      recordingContext.filter = "none";
+      recordingContext.restore();
+
+      // DOM UI는 제외하고 손 관절과 손가락 글씨가 그려진 캔버스만 합성합니다.
+      recordingContext.drawImage(
+        elements.overlay,
+        0,
+        0,
+        targetWidth,
+        targetHeight
+      );
+    }
+
+    function clearPreviousRecording() {
+      if (state.recordingUrl) {
+        URL.revokeObjectURL(state.recordingUrl);
+      }
+
+      state.recordingBlob = null;
+      state.recordingUrl = null;
+      elements.saveRecordingButton.hidden = true;
+      elements.saveRecordingButton.disabled = false;
+      elements.saveRecordingButton.textContent = "영상 저장하기";
+    }
+
+    async function startRecording() {
+      if (state.mediaRecorder?.state === "recording") {
+        return;
+      }
+
+      if (!elements.recordingCanvas.captureStream || !("MediaRecorder" in window)) {
+        elements.recordButton.textContent = "이 브라우저는 녹화 미지원";
+        elements.recordButton.disabled = true;
+        showToast("현재 브라우저에서는 영상 녹화를 지원하지 않습니다.", 4200);
+        return;
+      }
+
+      clearPreviousRecording();
+
+      if (!configureRecordingCanvas()) {
+        showToast("녹화 화면을 준비하지 못했습니다.");
+        return;
+      }
+
+      const mimeType = getSupportedRecordingMimeType();
+      const stream = elements.recordingCanvas.captureStream(CONFIG.recordingFps);
+      const options = mimeType
+        ? { mimeType, videoBitsPerSecond: 6_000_000 }
+        : { videoBitsPerSecond: 6_000_000 };
+
+      let recorder;
+
+      try {
+        recorder = new MediaRecorder(stream, options);
+      } catch (error) {
+        console.error(error);
+        stream.getTracks().forEach((track) => track.stop());
+        elements.recordButton.textContent = "녹화 시작 실패";
+        showToast("이 기기에서 녹화를 시작할 수 없습니다.", 4200);
+        return;
+      }
+
+      state.mediaRecorder = recorder;
+      state.recordingStream = stream;
+      state.recordingChunks = [];
+      state.recordingMimeType = recorder.mimeType || mimeType || "video/webm";
+      state.recordingStartedAt = Date.now();
+      state.finalizeRecordingPromise = null;
+
+      recorder.addEventListener("dataavailable", (event) => {
+        if (event.data?.size) {
+          state.recordingChunks.push(event.data);
+        }
+      });
+
+      recorder.addEventListener("stop", () => {
+        const blob = new Blob(state.recordingChunks, {
+          type: state.recordingMimeType
+        });
+
+        state.recordingBlob = blob.size ? blob : null;
+        state.recordingUrl = state.recordingBlob
+          ? URL.createObjectURL(state.recordingBlob)
+          : null;
+
+        state.recordingStream?.getTracks().forEach((track) => track.stop());
+        state.recordingStream = null;
+        state.mediaRecorder = null;
+        state.recordingChunks = [];
+
+        if (state.recordingFrameId) {
+          cancelAnimationFrame(state.recordingFrameId);
+          state.recordingFrameId = null;
+        }
+
+        elements.recordButton.classList.remove("recording");
+        elements.recordButton.disabled = false;
+        elements.recordButton.textContent = state.recordingBlob
+          ? "영상 저장하기"
+          : "녹화 다시 시작";
+
+        elements.saveRecordingButton.hidden = !state.recordingBlob;
+        elements.saveRecordingButton.disabled = false;
+        elements.saveRecordingButton.textContent = "영상 저장하기";
+      }, { once: true });
+
+      recorder.start(800);
+      elements.recordButton.disabled = false;
+      elements.recordButton.classList.add("recording");
+      elements.recordButton.textContent = "녹화 종료 · 저장";
+      drawRecordingFrame();
+    }
+
+    function stopRecording() {
+      const recorder = state.mediaRecorder;
+
+      if (!recorder || recorder.state === "inactive") {
+        return Promise.resolve(state.recordingBlob);
+      }
+
+      if (state.finalizeRecordingPromise) {
+        return state.finalizeRecordingPromise;
+      }
+
+      elements.recordButton.disabled = true;
+      elements.recordButton.textContent = "영상 처리 중...";
+      elements.saveRecordingButton.hidden = false;
+      elements.saveRecordingButton.disabled = true;
+      elements.saveRecordingButton.textContent = "영상 처리 중...";
+
+      state.finalizeRecordingPromise = new Promise((resolve) => {
+        recorder.addEventListener("stop", () => {
+          state.finalizeRecordingPromise = null;
+          resolve(state.recordingBlob);
+        }, { once: true });
+
+        try {
+          recorder.requestData();
+        } catch (error) {
+          console.warn(error);
+        }
+
+        recorder.stop();
+      });
+
+      return state.finalizeRecordingPromise;
+    }
+
+    function downloadRecording() {
+      if (!state.recordingBlob || !state.recordingUrl) {
+        showToast("저장할 영상이 아직 준비되지 않았습니다.");
+        return;
+      }
+
+      const isMp4 = state.recordingBlob.type.includes("mp4");
+      const extension = isMp4 ? "mp4" : "webm";
+      const date = new Date();
+      const stamp = [
+        date.getFullYear(),
+        String(date.getMonth() + 1).padStart(2, "0"),
+        String(date.getDate()).padStart(2, "0"),
+        "-",
+        String(date.getHours()).padStart(2, "0"),
+        String(date.getMinutes()).padStart(2, "0"),
+        String(date.getSeconds()).padStart(2, "0")
+      ].join("");
+
+      const link = document.createElement("a");
+      link.href = state.recordingUrl;
+      link.download = `happy-birthday-${stamp}.${extension}`;
+      link.rel = "noopener";
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      showToast("영상을 저장했습니다.");
+    }
+
+    async function stopAndDownloadRecording() {
+      if (state.mediaRecorder?.state === "recording") {
+        await stopRecording();
+        downloadRecording();
+        return;
+      }
+
+      if (state.recordingBlob) {
+        downloadRecording();
+        return;
+      }
+
+      await startRecording();
     }
 
     function resizeOverlay() {
@@ -838,6 +1335,10 @@
       elements.overlay.style.height = `${rect.height}px`;
 
       overlayContext.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      if (!state.mediaRecorder || state.mediaRecorder.state === "inactive") {
+        configureRecordingCanvas();
+      }
     }
 
     function clearOverlay() {
@@ -1508,6 +2009,7 @@
     async function startExperience() {
       elements.startButton.disabled = true;
       elements.startButton.querySelector("span").textContent = TEXT_CONFIG.loadingText;
+      syncResultMode();
 
       try {
         await Promise.all([
@@ -1523,6 +2025,7 @@
         state.running = true;
 
         requestAnimationFrame(inferenceLoop);
+        await startRecording();
       } catch (error) {
         console.error(error);
 
@@ -1570,15 +2073,18 @@
         if (shouldRestartLoop) {
           requestAnimationFrame(inferenceLoop);
         }
+
+        startRecording();
       }
     }
 
-    function completeExperience() {
+    async function completeExperience() {
       state.running = false;
       clearOverlay();
       showScreen("complete");
       spawnParticles(78);
       playFlash();
+      await stopRecording();
     }
 
     function playFlash() {
@@ -1654,6 +2160,16 @@
 
     function stopCamera() {
       state.running = false;
+      elements.app.classList.remove("camera-mode");
+      elements.recordControls.classList.add("hidden");
+
+      if (state.mediaRecorder?.state === "recording") {
+        try {
+          state.mediaRecorder.stop();
+        } catch (error) {
+          console.warn(error);
+        }
+      }
 
       if (!state.stream) {
         return;
@@ -1676,6 +2192,21 @@
     elements.restartButton.addEventListener(
       "click",
       resetWhileRunning
+    );
+
+    elements.resultToggle.addEventListener(
+      "change",
+      syncResultMode
+    );
+
+    elements.recordButton.addEventListener(
+      "click",
+      stopAndDownloadRecording
+    );
+
+    elements.saveRecordingButton.addEventListener(
+      "click",
+      downloadRecording
     );
 
     window.addEventListener(
@@ -1716,6 +2247,7 @@
 
     window.addEventListener("pagehide", stopCamera);
 
+    syncResultMode();
     resizeOverlay();
   </script>
 </body>
