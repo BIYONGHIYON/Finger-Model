@@ -276,7 +276,6 @@
       color: transparent;
       font-style: italic;
       -webkit-text-stroke: 1px rgba(255, 255, 255, 0.84);
-      text-shadow: 0 0 38px rgba(255, 95, 158, 0.18);
     }
 
     .intro-copy {
@@ -681,7 +680,6 @@
       font-style: italic;
       line-height: 0.9;
       letter-spacing: -0.06em;
-      text-shadow: 0 3px 34px rgba(0, 0, 0, 0.3);
     }
 
     .complete p {
@@ -2154,8 +2152,6 @@
       );
 
       overlayContext.fillStyle = "#ff314f";
-      overlayContext.shadowColor = color;
-      overlayContext.shadowBlur = active ? 18 : 9;
       overlayContext.fill();
 
       overlayContext.restore();
@@ -2182,9 +2178,6 @@
       overlayContext.textAlign = "center";
       overlayContext.textBaseline = "bottom";
       overlayContext.fillStyle = color;
-      overlayContext.shadowColor =
-        "rgba(0, 0, 0, 0.82)";
-      overlayContext.shadowBlur = 8;
       overlayContext.lineWidth = active ? 4 : 3;
       overlayContext.strokeStyle =
         "rgba(4, 4, 8, 0.72)";
@@ -2418,8 +2411,6 @@
           Math.PI * 2
         );
         recordingOverlayContext.fillStyle = "#ff314f";
-        recordingOverlayContext.shadowColor = assignment.color;
-        recordingOverlayContext.shadowBlur =
           (isClose ? 18 : 9) * widthScale;
         recordingOverlayContext.fill();
         recordingOverlayContext.restore();
@@ -2435,9 +2426,6 @@
         recordingOverlayContext.textAlign = "center";
         recordingOverlayContext.textBaseline = "bottom";
         recordingOverlayContext.fillStyle = assignment.color;
-        recordingOverlayContext.shadowColor =
-          "rgba(0, 0, 0, 0.82)";
-        recordingOverlayContext.shadowBlur = 8 * widthScale;
         recordingOverlayContext.lineWidth =
           (isClose ? 4 : 3) * widthScale;
         recordingOverlayContext.strokeStyle =
