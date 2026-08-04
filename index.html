@@ -19,7 +19,6 @@
     - 일반 텍스트 폰트 : 상단 스타일 영역의 body { font-family: ... } 부분 수정
     - 영어/강조 폰트 : .selected-word, .word-chip 영역의 font-family 수정
 
-
 5. 메인 컬러(테마 색상) 수정
     - 상단 스타일 영역 맨 위쪽(line 50)의 :root { ... } 블록
     - --pink, --purple, --cyan 뒤에 있는 색상 코드(예: #ff5f9e)를 변경
@@ -76,8 +75,7 @@
       background: #020204;
       color: var(--fg);
       font-family:
-        -apple-system, BlinkMacSystemFont, "SF Pro Display", "Pretendard",
-        "Noto Sans KR", sans-serif;
+        "Helvetica Neue", Arial, "Pretendard", "Noto Sans KR", sans-serif;
     }
 
     button {
@@ -263,9 +261,9 @@
     .intro h1 {
       max-width: 520px;
       margin: 0;
-      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(55px, 16vw, 92px);
-      font-weight: 400;
+      font-weight: 700;
       line-height: 0.83;
       letter-spacing: -0.065em;
     }
@@ -274,7 +272,6 @@
       display: block;
       margin-left: 0.53em;
       color: transparent;
-      font-style: italic;
       -webkit-text-stroke: 1px rgba(255, 255, 255, 0.84);
       text-shadow: 0 0 38px rgba(255, 95, 158, 0.18);
     }
@@ -487,14 +484,13 @@
       min-height: 1.05em;
       max-width: 94vw;
       padding: 0 10px;
-      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(61px, 19vw, 112px);
-      font-style: italic;
-      font-weight: 400;
+      font-weight: 700;
       line-height: 0.92;
       letter-spacing: -0.065em;
       text-align: center;
-      /* 그림자 지움 */
+      /* 그림자 삭제됨 */
       opacity: 0;
       transform: scale(0.72);
     }
@@ -619,9 +615,8 @@
       border-radius: 14px;
       background: rgba(255, 255, 255, 0.055);
       color: rgba(255, 255, 255, 0.37);
-      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(10px, 3vw, 13px);
-      font-style: italic;
       text-align: center;
       transition: 300ms ease;
     }
@@ -676,13 +671,12 @@
 
     .complete h2 {
       margin: 0 0 18px;
-      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
+      font-family: "Helvetica Neue", Arial, sans-serif;
       font-size: clamp(49px, 14vw, 82px);
-      font-weight: 400;
-      font-style: italic;
+      font-weight: 700;
       line-height: 0.9;
       letter-spacing: -0.06em;
-      /* 그림자 지움 */
+      /* 그림자 삭제됨 */
     }
 
     .complete p {
@@ -763,14 +757,7 @@
       transform: translate(-50%, 0);
     }
 
-    @media (min-width: 700px) {
-      .app {
-        width: min(100%, 540px);
-        margin: auto;
-        box-shadow: 0 0 80px rgba(0, 0, 0, 0.52);
-      }
-    }
-
+    /* 맥북이나 데스크탑에서도 꽉차게 만들어주는 제한 코드 삭제됨 */
     @media (prefers-reduced-motion: reduce) {
       *,
       *::before,
@@ -1321,7 +1308,7 @@
         console.error(error);
         stream.getTracks().forEach((track) => track.stop());
         elements.recordButton.textContent = "녹화 시작 실패";
-        showToast("이 기기에서 녹화를 시작할 수문을 수 없습니다.", 4200);
+        showToast("이 기기에서 녹화를 시작할 수 없습니다.", 4200);
         return;
       }
 
@@ -2183,7 +2170,7 @@
         );
 
       overlayContext.font =
-        `italic 700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif`;
+        `700 ${fontSize}px "Helvetica Neue", Arial, sans-serif`;
 
       overlayContext.textAlign = "center";
       overlayContext.textBaseline = "bottom";
@@ -2441,7 +2428,7 @@
           Math.min(19 * widthScale, targetWidth * 0.044)
         );
         recordingOverlayContext.font =
-          `italic 700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif`;
+          `700 ${fontSize}px "Helvetica Neue", Arial, sans-serif`;
         recordingOverlayContext.textAlign = "center";
         recordingOverlayContext.textBaseline = "bottom";
         recordingOverlayContext.fillStyle = assignment.color;
