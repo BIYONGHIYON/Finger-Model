@@ -1,7 +1,7 @@
 <!--
 =========================================================
 1. 문구 수정
-    - 스크립트 영역의 TEXT_CONFIG 내부 (line 875)
+    - 스크립트 영역의 TEXT_CONFIG 내부 (line 875 부근)
 
 2. 결과 화면 켜기/끄기
     - 시작 화면의 "결과 화면" 스위치에서 선택
@@ -276,6 +276,7 @@
       color: transparent;
       font-style: italic;
       -webkit-text-stroke: 1px rgba(255, 255, 255, 0.84);
+      text-shadow: 0 0 38px rgba(255, 95, 158, 0.18);
     }
 
     .intro-copy {
@@ -493,6 +494,7 @@
       line-height: 0.92;
       letter-spacing: -0.065em;
       text-align: center;
+      /* 그림자 지움 */
       opacity: 0;
       transform: scale(0.72);
     }
@@ -680,6 +682,7 @@
       font-style: italic;
       line-height: 0.9;
       letter-spacing: -0.06em;
+      /* 그림자 지움 */
     }
 
     .complete p {
@@ -791,7 +794,8 @@
     <div class="orb one"></div>
     <div class="orb two"></div>
 
-    <section class="screen intro" id="introScreen">
+    <!-- 숨김 처리(hidden) 됨 -->
+    <section class="screen intro hidden" id="introScreen">
       <h1 id="ui-intro-title">
         <span id="ui-intro-main"></span>
         <em id="ui-intro-sub"></em>
@@ -867,8 +871,13 @@
 
   <script type="module">
     const TEXT_CONFIG = {
+      introMain: "원하는",//시작화면 흰색 제목
+      introSub: "멘트 작성1",//시작화면 이탤릭 제목
+      introCopy: "멘트 작성2",//시작화면 하단 작은 글씨
       startBtn: "카메라 시작하기",//시작버튼
+      completeEyebrow: "멘트 작성3",//결과화면 제목 위 작은 글씨
       completeTitle: "i love<br />hooonkyu<br />so much",//결과화면 제목-br은 줄바꿈임
+      completeCopy: "멘트 작성4",//결과화면 제목 아래 작은 글씨
       restartBtn: "다시 시작하기",
       loadingText: "카메라와 모델 준비 중..."
     };
@@ -2152,6 +2161,8 @@
       );
 
       overlayContext.fillStyle = "#ff314f";
+      overlayContext.shadowColor = color;
+      overlayContext.shadowBlur = active ? 18 : 9;
       overlayContext.fill();
 
       overlayContext.restore();
@@ -2178,17 +2189,25 @@
       overlayContext.textAlign = "center";
       overlayContext.textBaseline = "bottom";
       overlayContext.fillStyle = color;
+      
+      /* 그림자 및 테두리 숨김
+      overlayContext.shadowColor =
+        "rgba(0, 0, 0, 0.82)";
+      overlayContext.shadowBlur = 8;
       overlayContext.lineWidth = active ? 4 : 3;
       overlayContext.strokeStyle =
         "rgba(4, 4, 8, 0.72)";
+      */
 
       const y = point.y - (active ? 14 : 11);
 
+      /*
       overlayContext.strokeText(
         text,
         point.x,
         y
       );
+      */
 
       overlayContext.fillText(
         text,
@@ -2411,6 +2430,8 @@
           Math.PI * 2
         );
         recordingOverlayContext.fillStyle = "#ff314f";
+        recordingOverlayContext.shadowColor = assignment.color;
+        recordingOverlayContext.shadowBlur =
           (isClose ? 18 : 9) * widthScale;
         recordingOverlayContext.fill();
         recordingOverlayContext.restore();
@@ -2426,19 +2447,28 @@
         recordingOverlayContext.textAlign = "center";
         recordingOverlayContext.textBaseline = "bottom";
         recordingOverlayContext.fillStyle = assignment.color;
+        
+        /* 그림자 및 테두리 숨김
+        recordingOverlayContext.shadowColor =
+          "rgba(0, 0, 0, 0.82)";
+        recordingOverlayContext.shadowBlur = 8 * widthScale;
         recordingOverlayContext.lineWidth =
           (isClose ? 4 : 3) * widthScale;
         recordingOverlayContext.strokeStyle =
           "rgba(4, 4, 8, 0.72)";
+        */
 
         const y =
           point.y - (isClose ? 14 : 11) * widthScale;
 
+        /*
         recordingOverlayContext.strokeText(
           assignment.word,
           point.x,
           y
         );
+        */
+       
         recordingOverlayContext.fillText(
           assignment.word,
           point.x,
@@ -2759,6 +2789,9 @@
 
     syncResultMode();
     resizeOverlay();
+    
+    // 페이지 진입 시 자동으로 카메라를 시작하도록 함수 호출을 추가함
+    startExperience();
   </script>
 </body>
 </html>
