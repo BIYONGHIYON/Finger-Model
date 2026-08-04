@@ -263,7 +263,7 @@
     .intro h1 {
       max-width: 520px;
       margin: 0;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
       font-size: clamp(55px, 16vw, 92px);
       font-weight: 400;
       line-height: 0.83;
@@ -487,7 +487,7 @@
       min-height: 1.05em;
       max-width: 94vw;
       padding: 0 10px;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
       font-size: clamp(61px, 19vw, 112px);
       font-style: italic;
       font-weight: 400;
@@ -619,7 +619,7 @@
       border-radius: 14px;
       background: rgba(255, 255, 255, 0.055);
       color: rgba(255, 255, 255, 0.37);
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
       font-size: clamp(10px, 3vw, 13px);
       font-style: italic;
       text-align: center;
@@ -676,7 +676,7 @@
 
     .complete h2 {
       margin: 0 0 18px;
-      font-family: Georgia, "Times New Roman", serif;
+      font-family: -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif;
       font-size: clamp(49px, 14vw, 82px);
       font-weight: 400;
       font-style: italic;
@@ -1321,7 +1321,7 @@
         console.error(error);
         stream.getTracks().forEach((track) => track.stop());
         elements.recordButton.textContent = "녹화 시작 실패";
-        showToast("이 기기에서 녹화를 시작할 수 없습니다.", 4200);
+        showToast("이 기기에서 녹화를 시작할 수문을 수 없습니다.", 4200);
         return;
       }
 
@@ -2183,8 +2183,7 @@
         );
 
       overlayContext.font =
-        `italic 700 ${fontSize}px Georgia, ` +
-        `"Times New Roman", serif`;
+        `italic 700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif`;
 
       overlayContext.textAlign = "center";
       overlayContext.textBaseline = "bottom";
@@ -2442,8 +2441,7 @@
           Math.min(19 * widthScale, targetWidth * 0.044)
         );
         recordingOverlayContext.font =
-          `italic 700 ${fontSize}px Georgia, ` +
-          `"Times New Roman", serif`;
+          `italic 700 ${fontSize}px -apple-system, BlinkMacSystemFont, "Pretendard", sans-serif`;
         recordingOverlayContext.textAlign = "center";
         recordingOverlayContext.textBaseline = "bottom";
         recordingOverlayContext.fillStyle = assignment.color;
